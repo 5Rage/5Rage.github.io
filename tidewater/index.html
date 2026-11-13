@@ -81,10 +81,18 @@
   .tide.warn { animation: wig 0.45s ease-in-out infinite; }
   @keyframes wig { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(2deg); } }
   canvas { display: block; touch-action: none; }
-  .boost { width: 100%; display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 9px; align-items: center; margin-top: 6px; padding-right: 4px; }
-  .boost button { height: 46px; padding: 0 6px; display: flex; align-items: center; justify-content: center; gap: 6px; text-align: left; font-size: 0.85rem; }
-  .boost small { display: block; font-weight: 500; font-size: 0.75rem; margin-top: 3px; white-space: nowrap; }
-  .boost .purse { min-width: 62px; }
+  .hud { position: relative; }
+  #aim { display: none; position: absolute; inset: -4px 0; align-items: center; justify-content: center; text-align: center; background: var(--accent); color: var(--onaccent); border: 2.5px solid var(--ink); border-radius: 12px 16px 13px 17px; box-shadow: 2px 3px 0 var(--ink); padding: 4px 12px 2px; font-size: 0.92rem; cursor: pointer; transform: rotate(-0.6deg); }
+  #aim.show { display: flex; }
+  #stage { position: relative; }
+  #purse { position: absolute; left: 2px; bottom: 0; font-size: 0.95rem; pointer-events: none; }
+  .boost { width: 100%; display: flex; justify-content: center; gap: 7px; margin-top: 6px; padding-right: 4px; min-height: 48px; }
+  .boost button { flex: 1; max-width: 64px; min-width: 0; height: 48px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+  .boost small { font-weight: 600; font-size: 0.72rem; white-space: nowrap; }
+  .boost small .coin { margin-right: 0.15em; }
+  .scroll h3 { margin: 6px 0 10px; font-size: 1rem; font-weight: 800; color: var(--muted); }
+  .theme svg.ic.big { width: 34px; height: 34px; margin: 0 6px; }
+  .theme .nm em { font-style: normal; font-weight: 600; color: var(--muted); font-size: 0.9rem; }
 
   /* modal + toast */
   .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(30, 28, 40, 0.55); padding: 22px; z-index: 5; }
@@ -115,7 +123,7 @@
     <button class="mode primary" id="mVoyage" style="--tilt:-0.8deg"><b>Voyage</b><span id="mVoyageSub"></span></button>
     <button class="mode" id="mEndless" style="--tilt:0.6deg"><b>Endless</b><span id="mEndlessSub"></span></button>
     <button class="mode" id="mDaily" style="--tilt:-0.4deg"><b>Daily tide</b><span id="mDailySub"></span></button>
-    <button class="mode" id="mShop" style="--tilt:0.7deg"><b>Paint box</b><span id="mShopSub"></span></button>
+    <button class="mode" id="mShop" style="--tilt:0.7deg"><b>Chandlery</b><span id="mShopSub"></span></button>
     <button class="link" id="mHelp">How do I play?</button>
   </section>
 
@@ -126,8 +134,8 @@
   </section>
 
   <section class="screen" id="shop">
-    <div class="bar"><button class="ico" data-go="menu" aria-label="Back"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><h2>Paint box</h2><span class="purse"><i class="coin"></i><span id="sCoins">0</span></span></div>
-    <div class="scroll" id="themes"></div>
+    <div class="bar"><button class="ico" data-go="menu" aria-label="Back"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><h2>Chandlery</h2><span class="purse"><i class="coin"></i><span id="sCoins">0</span></span></div>
+    <div class="scroll"><h3>For the voyage</h3><div id="items"></div><h3>Colour sets</h3><div id="themes"></div></div>
   </section>
 
   <section class="screen" id="game">
@@ -141,14 +149,10 @@
       <div class="stat"><span>Score</span><b id="score">0</b></div>
       <div class="tide" id="tideBox"><span id="tideLabel">Tide in</span><div id="pips"></div></div>
       <div class="stat r"><span id="goalLabel">Best</span><b id="goal">0</b></div>
+      <div id="aim"></div>
     </div>
-    <canvas id="c"></canvas>
-    <div class="boost">
-      <div class="purse"><i class="coin"></i><span id="gCoins">0</span></div>
-      <button id="bUndo" style="--tilt:-0.8deg"><svg class="ic" viewBox="0 0 24 24"><path d="M9 5L5 9l4 4"/><path d="M5 9h9a5 5 0 0 1 0 10H9"/></svg><div>Undo<small><i class="coin"></i><span id="cUndo"></span></small></div></button>
-      <button id="bReroll" style="--tilt:0.6deg"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h.01M15 15h.01M12 12h.01"/></svg><div>Swap<small><i class="coin"></i><span id="cReroll"></span></small></div></button>
-      <button id="bEbb" style="--tilt:-0.5deg"><svg class="ic" viewBox="0 0 24 24"><path d="M3 19c2-2.4 4-2.4 6 0s4 2.4 6 0 4-2.4 6 0"/><path d="M12 3v9M8 8.5l4 4 4-4"/></svg><div>Ebb<small><i class="coin"></i><span id="cEbb"></span></small></div></button>
-    </div>
+    <div id="stage"><canvas id="c"></canvas><div class="purse" id="purse"><i class="coin"></i><span id="gCoins">0</span></div></div>
+    <div class="boost" id="kit"></div>
   </section>
 </div>
 
@@ -168,7 +172,21 @@
     linesPerSpeedUp: 20, // cleared lines per one-move speed-up
     maxRecede: 2,        // most rows the tide falls back from one move
   };
-  const COST = { undo: 25, reroll: 40, ebb: 60, revive: 100 };
+  const COST = { revive: 100 };
+  const COIN = 32, KEG = 64, BUOY = 128; // extras a block can carry, on top of PEARL
+  // Items: carried in the kit, bought in the chandlery, opened by clearing voyage levels (at = levels cleared).
+  const ITEMS = [
+    { k: 'undo', name: 'Undo', cost: 25, at: 0, tip: 'Take back your last piece.', ic: '<path d="M9 5L5 9l4 4"/><path d="M5 9h9a5 5 0 0 1 0 10H9"/>' },
+    { k: 'swap', name: 'Fresh pieces', cost: 40, at: 0, tip: 'Swap all three pieces for new ones.', ic: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h.01M15 15h.01M12 12h.01"/>' },
+    { k: 'mallet', name: 'Mallet', cost: 50, at: 3, tip: 'Smash any one block.', aim: 'tap a block to smash it.', ic: '<path d="M4 20l8-8"/><path d="M10 7l7 7 4-4-7-7z"/>' },
+    { k: 'ebb', name: 'Ebb tide', cost: 60, at: 6, tip: 'Push the tide back two rows.', ic: '<path d="M3 19c2-2.4 4-2.4 6 0s4 2.4 6 0 4-2.4 6 0"/><path d="M12 3v9M8 8.5l4 4 4-4"/>' },
+    { k: 'twist', name: 'Twist', cost: 30, at: 10, tip: 'Turn one of your pieces a quarter turn.', aim: 'tap one of your pieces to turn it.', ic: '<path d="M19.5 12a7.5 7.5 0 1 1-2.6-5.7"/><path d="M20 4v5h-5"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/>' },
+    { k: 'charge', name: 'Depth charge', cost: 90, at: 15, tip: 'Blast a three-by-three patch of the board.', aim: 'tap the board to blast a 3 by 3 patch.', ic: '<circle cx="10.5" cy="14" r="6"/><path d="M14.5 9.5L17 7M18 4l1.5-1M19.5 7.5l1.5.5"/>' },
+    { k: 'harpoon', name: 'Harpoon', cost: 80, at: 20, tip: 'Clear one whole row.', aim: 'tap a row to clear it right across.', ic: '<path d="M3 12h17M15 7l5 5-5 5M3 8v8"/>' },
+    { k: 'sandbags', name: 'Sandbags', cost: 70, at: 30, tip: 'Hold the tide still for six moves.', ic: '<path d="M3 19c2-2.4 4-2.4 6 0s4 2.4 6 0 4-2.4 6 0"/><path d="M9 4v9M15 4v9"/>' },
+  ];
+  const ITEM = Object.fromEntries(ITEMS.map(it => [it.k, it]));
+  const GIFTS = [{ coins: 40 }, { undo: 2 }, { coins: 60 }, { mallet: 1 }, { swap: 2 }, { coins: 100 }, { charge: 1, ebb: 1 }]; // one a day, round and round
 
   const THEMES = {
     postcard: { name: 'Postcard', cost: 0, paper: '#f3e7cf', card: '#fff8e8', ink: '#27324a', text: '#27324a', muted: '#7a7466', accent: '#ef6f4a', onaccent: '#fff8e8', board: '#fbf1da', grid: '39,50,74', w: ['#9ed6d8', '#58b4c8', '#2f86a8'], stone: '#aaa89c', blocks: ['#ef6f4a', '#f2b134', '#6fb98f', '#6672c9', '#b07cc6', '#f29fb0', '#ead9a8'] },
@@ -225,7 +243,7 @@
   const GOAL_TIP = { pearls: 'Clear the line a pearl sits in to pocket it.', stones: 'Stones break when their line clears. Anything the tide soaks counts too.', iron: 'Iron-bound stones take two clears: the first only knocks the iron off.', storm: 'Storm level: the tide comes up two rows at a time.', doubles: 'A double is two or more lines cleared with one piece.' };
 
   // ---------- Profile (saved) ----------
-  const P = { coins: 100, best: 0, stars: {}, theme: 'postcard', owned: ['postcard'], muted: false, daily: { date: '', best: 0 }, streak: 0, lastDaily: '', seenHelp: false };
+  const P = { coins: 100, best: 0, stars: {}, theme: 'postcard', owned: ['postcard'], muted: false, daily: { date: '', best: 0 }, streak: 0, lastDaily: '', seenHelp: false, inv: { undo: 3, swap: 2 }, wind: 0, chests: 0, gift: { last: '', day: 0 } };
   try {
     const raw = localStorage.getItem('tidewater.save.v1');
     if (raw) Object.assign(P, JSON.parse(raw));
@@ -236,6 +254,10 @@
   const today = () => dayStr(new Date());
   const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); return dayStr(d); };
   const unlocked = n => n === 1 || P.stars[n - 1] > 0;
+  const cleared = () => { const nx = LEVELS.find(L => !P.stars[L.n]); return nx ? nx.n - 1 : LEVELS.length; };
+  const itemOpen = it => cleared() >= it.at;
+  const grant = g => { for (const k in g) { if (k === 'coins') P.coins += g[k]; else P.inv[k] = (P.inv[k] || 0) + g[k]; } };
+  const describe = g => Object.keys(g).map(k => k === 'coins' ? '<i class="coin"></i>' + g[k] : g[k] + ' × ' + ITEM[k].name).join(' and ');
   const totalStars = () => Object.values(P.stars).reduce((a, b) => a + b, 0);
 
   // ---------- Random ----------
@@ -254,11 +276,16 @@
     for (const [w, r] of SHAPES) { if ((x -= w) < 0) { rows = r; break; } }
     const cells = [];
     rows.forEach((line, r) => [...line].forEach((ch, c) => { if (ch === '#') cells.push([r, c]); }));
-    return { cells, h: rows.length, w: rows[0].length, color: 1 + Math.floor(rnd() * 7) };
+    const p = { cells, h: rows.length, w: rows[0].length, color: 1 + Math.floor(rnd() * 7), sp: null };
+    // Now and then one block of a piece carries something: a coin, a powder keg, a lifebuoy.
+    const roll = rnd(), at = Math.floor(rnd() * cells.length), lv = S.mode === 'voyage' ? S.lv : 999;
+    const flag = roll < 0.07 ? COIN : roll < 0.12 && lv >= 20 ? KEG : roll < 0.16 && lv >= 35 ? BUOY : 0;
+    if (flag) p.sp = [at, flag];
+    return p;
   }
 
   // ---------- Game state ----------
-  let S = null, undoSnap = null;
+  let S = null, undoSnap = null, aim = null; // aim: an item waiting for a tap
   const fx = { flashes: [], floaters: [], parts: [], bubbles: [], pops: new Map(), dispTide: 0, shake: 0, last: 0 };
 
   const dry = () => N - S.tide;
@@ -276,9 +303,10 @@
   }
 
   function startRun(mode, lv) {
-    S = { mode, lv: lv || 0, grid: Array.from({ length: N }, () => Array(N).fill(0)), tide: 0, score: 0, lines: 0, pearls: 0, rocks: 0, doubles: 0, limit: 0, surge: 1, streak: 0, moves: 0, tray: [null, null, null], over: false, won: false, why: '', paid: 0, revived: false, rs: null, fixed: 0, goal: null };
-    undoSnap = null;
+    S = { mode, lv: lv || 0, grid: Array.from({ length: N }, () => Array(N).fill(0)), tide: 0, score: 0, lines: 0, pearls: 0, rocks: 0, doubles: 0, limit: 0, surge: 1, calm: 0, streak: 0, moves: 0, tray: [null, null, null], over: false, won: false, why: '', paid: 0, revived: false, rs: null, fixed: 0, goal: null };
+    undoSnap = null; setAim(null, true);
     if (mode === 'voyage') {
+      S.calm = Math.min(3, P.wind) * 2;
       const L = LEVELS[lv - 1], rand = mulberry(L.seed);
       S.tide = L.tide; S.fixed = L.interval; S.goal = { type: L.type, target: L.target }; S.limit = L.limit; S.surge = L.surge;
       if (L.type === 'pearls') S.goal.target = scatter(rand, L.target, STONE | PEARL, 1);
@@ -326,15 +354,42 @@
     return { rows, cols };
   }
 
+  // Take blocks off the board with all their side effects: kegs blast their neighbours, iron drops to plain
+  // stone, and pearls, coins and lifebuoys pay out.
+  function removeCells(list) {
+    const d = dry(), seen = new Set(), cells = [], queue = list.slice();
+    while (queue.length) {
+      const [r, c] = queue.pop();
+      if (r < 0 || r >= d || c < 0 || c >= N) continue;
+      const k = r * N + c, v = S.grid[r][c];
+      if (!v || seen.has(k)) continue;
+      seen.add(k); cells.push([r, c, v]);
+      if (v & KEG) for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) queue.push([r + a, c + b]);
+    }
+    let pearls = 0, coins = 0, buoys = 0, kegs = 0;
+    for (const [r, c, v] of cells) {
+      S.grid[r][c] = (v & 15) === IRON ? STONE : 0;
+      if (v & PEARL) pearls++; else if ((v & 15) === STONE) S.rocks++;
+      if (v & COIN) coins++;
+      if (v & BUOY) buoys++;
+      if (v & KEG) kegs++;
+      burst(r, c, v, 3);
+    }
+    if (!cells.length) return 0;
+    fx.flashes.push({ cells, t0: performance.now(), dur: 320 });
+    const [r0, c0] = cells[0];
+    if (pearls) { S.pearls += pearls; floater(pearls > 1 ? pearls + ' pearls!' : 'Pearl!', Math.max(0, r0 - 1), c0); }
+    if (coins) { P.coins += coins * 5; floater('+' + coins * 5 + ' coins', r0 + 1, c0 + 2); }
+    if (buoys) { S.tide = Math.max(0, S.tide - buoys); floater('Tide back!', r0 + 1, c0 - 2); }
+    if (kegs) { fx.shake = 13; sfx.boom(); }
+    return cells.length;
+  }
+
   function clearLines() {
-    const { rows, cols } = fullLines(S.grid), d = dry(), seen = new Set(), cells = [];
-    const add = (r, c) => { const k = r * N + c; if (!seen.has(k)) { seen.add(k); cells.push([r, c, S.grid[r][c]]); } };
-    rows.forEach(r => { for (let c = 0; c < N; c++) add(r, c); });
-    cols.forEach(c => { for (let r = 0; r < d; r++) add(r, c); });
-    let pearls = 0;
-    cells.forEach(([r, c, v]) => { S.grid[r][c] = (v & 15) === IRON ? STONE : 0; if (v & PEARL) pearls++; else if ((v & 15) === STONE) S.rocks++; burst(r, c, v, 3); });
-    if (cells.length) fx.flashes.push({ cells, t0: performance.now(), dur: 320 });
-    if (pearls) { S.pearls += pearls; floater(pearls > 1 ? pearls + ' pearls!' : 'Pearl!', Math.max(0, cells[0][0] - 1), cells[0][1]); }
+    const { rows, cols } = fullLines(S.grid), d = dry(), list = [];
+    rows.forEach(r => { for (let c = 0; c < N; c++) list.push([r, c]); });
+    cols.forEach(c => { for (let r = 0; r < d; r++) list.push([r, c]); });
+    removeCells(list);
     return rows.length + cols.length;
   }
 
@@ -372,14 +427,14 @@
     if (!p || S.over || !canPlace(p, r0, c0)) return false;
     undoSnap = JSON.stringify(S);
     const now = performance.now();
-    for (const [r, c] of p.cells) { S.grid[r0 + r][c0 + c] = p.color; fx.pops.set((r0 + r) * N + c0 + c, now); }
+    p.cells.forEach(([r, c], k) => { S.grid[r0 + r][c0 + c] = p.color | (p.sp && p.sp[0] === k ? p.sp[1] : 0); fx.pops.set((r0 + r) * N + c0 + c, now); });
     S.tray[i] = null;
     S.moves++;
     S.score += p.cells.length;
     sfx.place();
     const n = clearLines();
     if (n) { S.streak++; S.score += scoreLines(n, r0 + p.h / 2 - 0.5, c0 + p.w / 2 - 0.5); } else S.streak = 0;
-    if (!goalMet() && --S.movesToRise <= 0) rise();
+    if (!goalMet()) { if (S.calm > 0) S.calm--; else if (--S.movesToRise <= 0) rise(); }
     if (goalMet()) win();
     else if (!S.over) {
       if (S.tray.every(x => !x)) refill();
@@ -400,7 +455,8 @@
   }
 
   function end(why) {
-    S.over = true; S.why = why; undoSnap = null;
+    S.over = true; S.why = why; undoSnap = null; setAim(null, true);
+    if (S.mode === 'voyage') P.wind = 0;
     fx.shake = 12;
     sfx.over();
     let extra = '';
@@ -444,11 +500,21 @@
   }
 
   function win() {
-    S.over = true; S.won = true; undoSnap = null;
+    S.over = true; S.won = true; undoSnap = null; setAim(null, true);
     const L = LEVELS[S.lv - 1], stars = S.tide <= 1 ? 3 : S.tide <= 3 ? 2 : 1;
-    const first = !P.stars[L.n], coins = 10 + stars * 5 + (first ? 30 : 0);
+    const first = !P.stars[L.n], coins = 10 + stars * 5 + (first ? 30 : 0), was = cleared();
     P.stars[L.n] = Math.max(P.stars[L.n] || 0, stars);
-    P.coins += coins; save();
+    P.coins += coins;
+    P.wind = Math.min(3, P.wind + 1);
+    let extra = '<p>Fair wind ×' + P.wind + ': the tide holds off for your first ' + P.wind * 2 + ' moves next level.</p>';
+    ITEMS.filter(it => it.at > was && it.at <= cleared()).forEach(it => { grant({ [it.k]: 2 }); extra += '<p><b>New in your kit: ' + it.name + '.</b> ' + it.tip + ' Two on the house.</p>'; });
+    while (totalStars() >= (P.chests + 1) * 12) {
+      P.chests++;
+      const open = ITEMS.filter(itemOpen), g = { coins: 60 };
+      for (let k = 0; k < 2; k++) { const it = open[Math.floor(Math.random() * open.length)]; g[it.k] = (g[it.k] || 0) + 1; }
+      grant(g); extra += '<p><b>Sea chest!</b> ' + describe(g) + '</p>';
+    }
+    save();
     sfx.win();
     for (let k = 0; k < 40; k++) burst(Math.random() * N, Math.random() * N, 1 + (k % 7), 1);
     const run = S;
@@ -457,17 +523,61 @@
       const btns = [];
       if (L.n < LEVELS.length) btns.push({ t: 'Next level', primary: true, fn: () => preLevel(L.n + 1) });
       btns.push({ t: 'Play again', fn: () => startRun('voyage', L.n) }, { t: 'Level map', primary: L.n === LEVELS.length, fn: () => show('map') });
-      modal('Level ' + L.n + ' clear', '<div class="stars">' + starRow(stars, 3) + '</div><p>' + (stars === 3 ? 'Tide right out. Lovely work.' : 'Finish with the tide lower for more stars.') + '</p><p><i class="coin"></i>+' + coins + (first ? ' (first clear bonus)' : '') + '</p>', btns);
+      modal('Level ' + L.n + ' clear', '<div class="stars">' + starRow(stars, 3) + '</div><p>' + (stars === 3 ? 'Tide right out. Lovely work.' : 'Finish with the tide lower for more stars.') + '</p><p><i class="coin"></i>+' + coins + (first ? ' (first clear bonus)' : '') + '</p>' + extra, btns);
     }, 750);
   }
 
-  function useBooster(k) {
+  const canPay = k => P.inv[k] > 0 || P.coins >= ITEM[k].cost;
+  function spend(k) { if (P.inv[k] > 0) P.inv[k]--; else P.coins -= ITEM[k].cost; save(); }
+  function setAim(k, quiet) {
+    aim = k || null;
+    const bar = $('aim');
+    bar.classList.toggle('show', !!aim);
+    if (aim) bar.textContent = ITEM[aim].name + ': ' + ITEM[aim].aim + ' Tap here to cancel.';
+    if (!quiet && S) hud();
+  }
+  function useItem(k) {
     if (!S || S.over || modalOpen()) return;
-    if (P.coins < COST[k]) return toast('Not enough coins');
-    if (k === 'undo') { if (!undoSnap) return toast('Nothing to undo'); S = JSON.parse(undoSnap); undoSnap = null; fx.pops.clear(); }
-    if (k === 'reroll') { undoSnap = null; refill(); }
-    if (k === 'ebb') { if (S.tide === 0) return toast('The tide is already out'); undoSnap = null; S.tide = Math.max(0, S.tide - 2); sfx.rise(); }
-    P.coins -= COST[k]; save(); hud();
+    const it = ITEM[k];
+    if (aim) { const same = aim === k; setAim(null); if (same) return; }
+    if (!canPay(k)) return toast('None left, and one costs ' + it.cost + ' coins');
+    if (it.aim) return setAim(k);
+    if (k === 'undo') { if (!undoSnap) return toast('Nothing to take back'); S = JSON.parse(undoSnap); fx.pops.clear(); }
+    if (k === 'ebb') { if (S.tide === 0) return toast('The tide is already out'); S.tide = Math.max(0, S.tide - 2); sfx.rise(); }
+    if (k === 'swap') refill();
+    if (k === 'sandbags') S.calm += 6;
+    undoSnap = null; spend(k); hud();
+  }
+  // A tap while an item is waiting for a target. px, py are canvas coordinates.
+  function aimAt(px, py) {
+    const k = aim, d = dry();
+    if (k === 'twist') {
+      if (py < trayY - PAD) return false;
+      const p = S.tray[Math.min(2, Math.max(0, Math.floor(px / (W / 3))))];
+      if (!p) return false;
+      const h = p.h;
+      p.cells = p.cells.map(([r, c]) => [c, h - 1 - r]); p.h = p.w; p.w = h;
+      sfx.place();
+    } else {
+      const r = Math.floor((py - by) / cell), c = Math.floor((px - bx) / cell), list = [];
+      if (r < 0 || r >= d || c < 0 || c >= N) return false;
+      if (k === 'mallet') list.push([r, c]);
+      if (k === 'charge') for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) list.push([r + a, c + b]);
+      if (k === 'harpoon') for (let x = 0; x < N; x++) list.push([r, x]);
+      if (!removeCells(list)) { toast('Nothing there to hit'); return false; }
+      fx.shake = Math.max(fx.shake, 8); sfx.boom();
+    }
+    undoSnap = null; spend(k); setAim(null, true);
+    if (goalMet()) win();
+    hud();
+    return true;
+  }
+  function gift() {
+    const t = today();
+    if (P.gift.last === t) return;
+    const g = GIFTS[P.gift.day % GIFTS.length], day = (P.gift.day % GIFTS.length) + 1;
+    P.gift = { last: t, day: P.gift.day + 1 }; grant(g); save(); show('menu');
+    modal('Day ' + day + ' gift', '<p>Something for showing up.</p><div class="big" style="font-size:1.5rem">' + describe(g) + '</div><p>' + (day === GIFTS.length ? 'That was the big one. It starts over tomorrow.' : 'There is another tomorrow. Day seven is the good one.') + '</p>', [{ t: 'Lovely', primary: true }]);
   }
 
   // ---------- Screens ----------
@@ -528,11 +638,12 @@
       $('mEndlessSub').textContent = P.best ? 'Best so far: ' + P.best : 'How long can you hold back the sea?';
       const played = P.lastDaily === today();
       $('mDailySub').textContent = played ? 'Today: ' + P.daily.best + ' · ' + P.streak + (P.streak === 1 ? ' day' : ' days') + ' running' : 'One board a day, 50 coins for showing up';
-      $('mShopSub').textContent = P.owned.length + ' of ' + Object.keys(THEMES).length + ' colour sets';
+      $('mShopSub').textContent = 'Items for the voyage, and colour sets';
     }
     if (id === 'map') { $('mapStars').innerHTML = STAR(true) + ' ' + totalStars(); const nx = LEVELS.find(L => !P.stars[L.n]) || LEVELS[LEVELS.length - 1]; mapSea = Math.floor((nx.n - 1) / PER_SEA); buildMap(); }
     if (id === 'shop') {
       $('sCoins').textContent = P.coins;
+      $('items').innerHTML = ITEMS.map((it, i) => { const open = itemOpen(it); return '<div class="theme" style="--tilt:' + (i % 2 ? 0.5 : -0.5) + 'deg"><svg class="ic big" viewBox="0 0 24 24">' + it.ic + '</svg><div class="nm">' + it.name + (open ? ' <em>×' + (P.inv[it.k] || 0) + '</em>' : '') + '<span>' + (open ? it.tip : 'Opens after level ' + it.at) + '</span></div><button data-buy="' + it.k + '"' + (open ? (P.coins >= it.cost ? ' class="primary"' : '') : ' disabled') + '><i class="coin"></i>' + it.cost + '</button></div>'; }).join('');
       $('themes').innerHTML = Object.entries(THEMES).map(([k, t], i) => {
         const own = P.owned.includes(k), on = P.theme === k, st = ' stroke="' + t.ink + '" stroke-width="2.5" stroke-linejoin="round"';
         return '<div class="theme" style="--tilt:' + (i % 2 ? 0.6 : -0.6) + 'deg"><svg viewBox="0 0 76 56"><rect x="2" y="2" width="72" height="52" rx="8" fill="' + t.board + '"' + st + '/>' +
@@ -547,7 +658,7 @@
 
   function preLevel(n) {
     const L = LEVELS[n - 1];
-    modal('Level ' + n, '<p>' + TIERS[Math.floor((n - 1) / PER_SEA)] + '</p><div class="big" style="font-size:1.6rem">' + goalText(L) + '</div><p>The tide comes up every ' + L.interval + ' moves' + (L.tide ? ', and it is already ' + L.tide + (L.tide === 1 ? ' row' : ' rows') + ' in' : '') + '.</p>' + (L.limit ? '<p>You have <b>' + L.limit + ' moves</b>.</p>' : '') + [L.type, L.iron ? 'iron' : '', L.surge > 1 ? 'storm' : ''].map(t => GOAL_TIP[t] ? '<p>' + GOAL_TIP[t] + '</p>' : '').join('') + '<p>Finish with the water low for three stars.</p>', [{ t: 'Cast off', primary: true, fn: () => startRun('voyage', n) }, { t: 'Back', fn: () => show('map') }]);
+    modal('Level ' + n, '<p>' + TIERS[Math.floor((n - 1) / PER_SEA)] + '</p><div class="big" style="font-size:1.6rem">' + goalText(L) + '</div><p>The tide comes up every ' + L.interval + ' moves' + (L.tide ? ', and it is already ' + L.tide + (L.tide === 1 ? ' row' : ' rows') + ' in' : '') + '.</p>' + (L.limit ? '<p>You have <b>' + L.limit + ' moves</b>.</p>' : '') + [L.type, L.iron ? 'iron' : '', L.surge > 1 ? 'storm' : ''].map(t => GOAL_TIP[t] ? '<p>' + GOAL_TIP[t] + '</p>' : '').join('') + (P.wind ? '<p>Fair wind ×' + P.wind + ': the tide holds off for your first ' + P.wind * 2 + ' moves.</p>' : '') + '<p>Finish with the water low for three stars.</p>', [{ t: 'Cast off', primary: true, fn: () => startRun('voyage', n) }, { t: 'Back', fn: () => show('map') }]);
   }
 
   function applyTheme() {
@@ -578,7 +689,7 @@
   }
   function help() {
     P.seenHelp = true; save();
-    modal('How it works', '<ul><li>Drag pieces onto the board. Fill a whole row or column and it clears.</li><li>Every few moves the tide comes up a row. Anything it covers turns to stone, and is still sitting there when the water drops.</li><li>Each line you clear pushes the tide back out.</li><li>Columns only need filling above the waterline, so high water is your chance to fight back.</li><li>You are done when none of your pieces fit above the water.</li></ul>', [{ t: 'Got it', primary: true }]);
+    modal('How it works', '<ul><li>Drag pieces onto the board. Fill a whole row or column and it clears.</li><li>Every few moves the tide comes up a row. Anything it covers turns to stone, and is still sitting there when the water drops.</li><li>Each line you clear pushes the tide back out.</li><li>Columns only need filling above the waterline, so high water is your chance to fight back.</li><li>Some blocks carry extras. Clear their line and coins pay out, powder kegs blast their neighbours, and lifebuoys push the tide back.</li><li>You are done when none of your pieces fit above the water.</li></ul>', [{ t: 'Got it', primary: true, fn: gift }]);
   }
   let toastT = 0;
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1400); }
@@ -589,13 +700,11 @@
     else { $('goalLabel').textContent = S.mode === 'daily' ? 'Today' : 'Best'; $('goal').textContent = S.mode === 'daily' ? (P.daily.date === today() ? P.daily.best : 0) : P.best; }
     $('gTitle').innerHTML = S.mode === 'voyage' ? 'Level ' + S.lv + (S.limit ? ' <span class="left' + (S.limit - S.moves <= 3 ? ' low' : '') + '">' + Math.max(0, S.limit - S.moves) + ' left</span>' : '') : S.mode === 'daily' ? 'Daily tide' : 'Endless';
     const left = Math.max(0, S.movesToRise);
-    $('tideLabel').textContent = left === 1 ? 'Tide next move!' : 'Tide in ' + left + ' moves';
+    $('tideLabel').textContent = S.calm > 0 ? 'Calm for ' + S.calm + (S.calm === 1 ? ' move' : ' moves') : left === 1 ? 'Tide next move!' : 'Tide in ' + left + ' moves';
     $('pips').innerHTML = Array.from({ length: S.interval }, (_, i) => '<i class="' + (i < left ? 'on' : '') + '"></i>').join('');
-    $('tideBox').classList.toggle('warn', left === 1 && !S.over);
+    $('tideBox').classList.toggle('warn', left === 1 && !S.over && !S.calm);
     $('gCoins').textContent = P.coins;
-    $('bUndo').disabled = S.over || !undoSnap || P.coins < COST.undo;
-    $('bReroll').disabled = S.over || P.coins < COST.reroll;
-    $('bEbb').disabled = S.over || S.tide === 0 || P.coins < COST.ebb;
+    $('kit').innerHTML = ITEMS.filter(itemOpen).map(it => '<button data-item="' + it.k + '" aria-label="' + it.name + '"' + (aim === it.k ? ' class="primary"' : '') + (S.over ? ' disabled' : '') + '><svg class="ic" viewBox="0 0 24 24">' + it.ic + '</svg><small>' + (P.inv[it.k] > 0 ? '×' + P.inv[it.k] : '<i class="coin"></i>' + it.cost) + '</small></button>').join('');
   }
 
   // ---------- Sound ----------
@@ -620,6 +729,7 @@
     place: () => { tone(220, 0.09, 'triangle', 0.1, 0, 140); buzz(8); },
     clear: n => { [523, 659, 784, 1047].slice(0, 2 + Math.min(n, 2)).forEach((f, i) => tone(f, 0.16, 'sine', 0.09, i * 0.06)); buzz(25); },
     rise: () => tone(90, 0.5, 'sine', 0.14, 0, 180),
+    boom: () => { tone(130, 0.32, 'sawtooth', 0.1, 0, 38); buzz(40); },
     over: () => { tone(330, 0.25, 'triangle', 0.1, 0, 220); tone(220, 0.45, 'triangle', 0.1, 0.22, 110); },
     win: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'sine', 0.09, i * 0.09)),
   };
@@ -694,9 +804,28 @@
       ctx.strokeStyle = 'rgba(240,140,170,0.7)'; ctx.lineWidth = s * 0.07; ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s * 0.15, 0.3, 1.9); ctx.stroke();
       ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + s * 0.43, y + s * 0.42, s * 0.05, 0, 7); ctx.fill();
     }
+    if (v & COIN) {
+      ctx.fillStyle = '#f7c843'; ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s * 0.23, 0, 7); ctx.fill();
+      ctx.lineWidth = ink; ctx.strokeStyle = TH.ink; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = s * 0.06; ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s * 0.13, 3.4, 4.6); ctx.stroke();
+    }
+    if (v & KEG) {
+      ctx.strokeStyle = TH.ink; ctx.lineWidth = s * 0.08; ctx.beginPath(); ctx.moveTo(x + s * 0.58, y + s * 0.42); ctx.quadraticCurveTo(x + s * 0.64, y + s * 0.26, x + s * 0.74, y + s * 0.27); ctx.stroke();
+      ctx.fillStyle = '#2a2a33'; ctx.beginPath(); ctx.arc(x + s * 0.47, y + s * 0.57, s * 0.23, 0, 7); ctx.fill(); ctx.lineWidth = ink; ctx.stroke();
+      ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.arc(x + s * 0.76, y + s * 0.26, s * 0.075, 0, 7); ctx.fill(); ctx.lineWidth = ink * 0.7; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = s * 0.05; ctx.beginPath(); ctx.arc(x + s * 0.47, y + s * 0.57, s * 0.14, 3.5, 4.5); ctx.stroke();
+    }
+    if (v & BUOY) {
+      const cx = x + s / 2, cy = y + s / 2;
+      ctx.fillStyle = '#e8503a'; ctx.beginPath(); ctx.arc(cx, cy, s * 0.29, 0, 7); ctx.fill(); ctx.lineWidth = ink; ctx.strokeStyle = TH.ink; ctx.stroke();
+      ctx.strokeStyle = '#fffaf0'; ctx.lineWidth = s * 0.15; ctx.lineCap = 'butt';
+      for (let q = 0; q < 4; q++) { ctx.beginPath(); ctx.arc(cx, cy, s * 0.2, q * 1.571 + 0.25, q * 1.571 + 0.9); ctx.stroke(); }
+      ctx.lineCap = 'round';
+      ctx.fillStyle = colorOf(v); ctx.beginPath(); ctx.arc(cx, cy, s * 0.11, 0, 7); ctx.fill(); ctx.lineWidth = ink; ctx.strokeStyle = TH.ink; ctx.stroke();
+    }
     ctx.globalAlpha = 1;
   }
-  function drawPiece(p, x, y, s, alpha, seed) { p.cells.forEach(([r, c], k) => block(x + c * s, y + r * s, s, p.color, alpha, (seed || 0) + p.color * 13 + k * 3 + 1)); }
+  function drawPiece(p, x, y, s, alpha, seed) { p.cells.forEach(([r, c], k) => block(x + c * s, y + r * s, s, p.color | (p.sp && p.sp[0] === k ? p.sp[1] : 0), alpha, (seed || 0) + p.color * 13 + k * 3 + 1)); }
   function floater(text, r, c) { fx.floaters.push({ text, x: bx + (c + 0.5) * cell, y: by + (r + 0.5) * cell, t0: performance.now(), tilt: (Math.random() - 0.5) * 0.2 }); }
   function burst(r, c, v, count) {
     if (fx.parts.length > 300) return;
@@ -796,6 +925,8 @@
     ctx.restore();
     ctx.lineWidth = ink * 1.15; ctx.strokeStyle = TH.ink; rr(bx - 6, by - 6, bs + 12, bh + 12, 15); ctx.stroke();
 
+    if (aim) { ctx.lineWidth = ink * 2; ctx.strokeStyle = TH.accent; ctx.setLineDash([cell * 0.3, cell * 0.22]); ctx.lineDashOffset = -now * 0.02; if (aim === 'twist') rr(4, trayY - 2, W - 8, trayH, 14); else rr(bx - 1, by - 1, bs + 2, d * cell + 2, 10); ctx.stroke(); ctx.setLineDash([]); }
+
     // confetti
     fx.parts = fx.parts.filter(p => (p.life -= dt / 650) > 0);
     for (const p of fx.parts) {
@@ -853,6 +984,7 @@
   cv.addEventListener('pointerdown', e => {
     if (drag || !S || S.over || modalOpen()) return;
     const [px, py] = pos(e);
+    if (aim) { aimAt(px, py); e.preventDefault(); return; }
     if (py < trayY - PAD) return;
     const i = Math.min(2, Math.max(0, Math.floor(px / (W / 3)))), p = S.tray[i];
     if (!p) return;
@@ -874,17 +1006,22 @@
   const SPEAKER = '<svg class="ic" viewBox="0 0 24 24"><path d="M4 10v4h3l5 4V6l-5 4z"/>';
   const setSound = () => { $('soundBtn').innerHTML = SPEAKER + (P.muted ? '<path d="M16.5 9.5l4.5 5M21 9.5l-4.5 5"/>' : '<path d="M16 9.5c1.3 1.5 1.3 3.5 0 5M18.8 7c2.600 3 2.600 7 0 10"/>') + '</svg>'; };
   $('soundBtn').onclick = () => { P.muted = !P.muted; save(); setSound(); };
-  $('restartBtn').onclick = () => { settle(); save(); startRun(S.mode, S.lv); };
-  $('gMenu').onclick = () => { settle(); save(); show(S.mode === 'voyage' ? 'map' : 'menu'); };
+  const quit = () => { if (S.mode === 'voyage' && !S.over) P.wind = 0; setAim(null, true); settle(); save(); };
+  $('restartBtn').onclick = () => { quit(); startRun(S.mode, S.lv); };
+  $('gMenu').onclick = () => { quit(); show(S.mode === 'voyage' ? 'map' : 'menu'); };
   $('mVoyage').onclick = () => show('map');
   $('mEndless').onclick = () => startRun('endless');
   $('mDaily').onclick = () => startRun('daily');
   $('mShop').onclick = () => show('shop');
   $('mHelp').onclick = help;
-  $('bUndo').onclick = () => useBooster('undo');
-  $('bReroll').onclick = () => useBooster('reroll');
-  $('bEbb').onclick = () => useBooster('ebb');
-  $('cUndo').textContent = COST.undo; $('cReroll').textContent = COST.reroll; $('cEbb').textContent = COST.ebb;
+  $('kit').onclick = e => { const b = e.target.closest('button[data-item]'); if (b) useItem(b.dataset.item); };
+  $('aim').onclick = () => setAim(null);
+  $('items').onclick = e => {
+    const b = e.target.closest('button[data-buy]'); if (!b || b.disabled) return;
+    const it = ITEM[b.dataset.buy];
+    if (P.coins < it.cost) return toast('Not enough coins yet');
+    P.coins -= it.cost; grant({ [it.k]: 1 }); save(); show('shop');
+  };
   document.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
   $('levels').onclick = e => { const b = e.target.closest('button[data-lv]'); if (b && !b.disabled) preLevel(+b.dataset.lv); };
   $('themes').onclick = e => {
@@ -903,11 +1040,11 @@
   applyTheme();
   setSound();
   show('menu');
-  if (!P.seenHelp) help();
+  if (!P.seenHelp) help(); else gift();
   requestAnimationFrame(draw);
 
   // Hook for automated playtests.
-  window.__tw = { get S() { return S; }, P, CFG, N, LEVELS, TUNE, place, canPlace, fullLines, startRun, dry, useBooster, show };
+  window.__tw = { get S() { return S; }, P, CFG, N, LEVELS, TUNE, place, canPlace, fullLines, startRun, dry, useItem, aimAt, ITEMS, show, geo: () => ({ bx, by, cell, trayY, trayH, W }) };
 })();
 </script>
 </body>
