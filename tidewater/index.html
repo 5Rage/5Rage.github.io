@@ -51,6 +51,7 @@
   #levels .rt { fill: none; stroke: var(--text); stroke-width: 3.5; stroke-dasharray: 1 11; stroke-linecap: round; opacity: 0.6; }
   #levels .dd path { fill: none; stroke: var(--water); stroke-width: 3; stroke-linecap: round; }
   #levels button { position: absolute; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; padding: 0; font-size: 1.3rem; font-weight: 800; }
+  #levels button:disabled { opacity: 1; color: var(--muted); border-color: var(--muted); box-shadow: 3px 4px 0 var(--muted); background: var(--paper); }
   #levels button.next { background: var(--accent); color: var(--onaccent); animation: bob 1.5s ease-in-out infinite; }
   #levels .st { position: absolute; transform: translateX(-50%); white-space: nowrap; font-size: 0.95rem; }
   #levels .tag { position: absolute; background: var(--text); color: var(--paper); padding: 5px 11px 3px; border-radius: 5px 8px 6px 9px; font-size: 0.85rem; transform: rotate(var(--tilt)); }
@@ -189,19 +190,25 @@
   const TOTAL_W = SHAPES.reduce((a, s) => a + s[0], 0);
 
   // 40 voyage levels: the goal rotates, the sea gets rougher every five.
-  const LEVELS = Array.from({ length: 40 }, (_, k) => {
-    const n = k + 1, tier = Math.floor(k / 5);
-    const type = n === 1 ? 'lines' : ['score', 'lines', 'pearls'][k % 3];
+  // 200 voyage levels in 20 waters of ten. Each water ramps up, and the waters get rougher until about 150.
+  const GOALS = ['lines', 'score', 'pearls', 'stones', 'doubles'];
+  const SEED_FIX = {}; // level number -> replacement seed, for layouts that playtested as unfair
+  const LEVELS = Array.from({ length: 200 }, (_, k) => {
+    const n = k + 1, water = Math.floor(k / 10), pos = k % 10;
+    const D = Math.min(1, water / 14) * 0.7 + (pos / 9) * 0.3; // 0 easy .. 1 hard
+    const type = GOALS[(k * 3 + water) % 5];
+    const target = type === 'score' ? 150 + Math.round(D * 60) * 10 : type === 'lines' ? 5 + Math.round(D * 18) : type === 'pearls' ? 3 + Math.round(D * 6) : type === 'stones' ? 4 + Math.round(D * 9) : 1 + Math.round(D * 4);
+    const stones = Math.round(D * 10) + (k % 4);
     return {
-      n, type,
-      target: type === 'score' ? 120 + n * 30 : type === 'lines' ? 4 + Math.round(n * 0.7) : Math.min(10, 3 + Math.floor(n / 5)),
-      interval: tier < 2 ? 4 : tier < 5 ? 3 : 2,
-      tide: [0, 0, 1, 1, 2, 2, 3, 3][tier],
-      stones: Math.min(14, tier * 2 + (k % 5)),
-      seed: 7000 + n,
+      n, type, target,
+      interval: D < 0.3 ? 4 : D < 0.72 ? 3 : 2,
+      tide: Math.min(3, Math.round(D * 2.6 + (k % 3) * 0.3)),
+      stones: type === 'stones' ? Math.max(stones, target) : stones,
+      seed: SEED_FIX[n] || 7000 + n,
     };
   });
-  const goalText = L => L.type === 'score' ? 'Score ' + L.target + ' points' : L.type === 'lines' ? 'Clear ' + L.target + ' lines' : 'Collect ' + L.target + ' pearls';
+  const goalText = L => ({ score: 'Score ' + L.target + ' points', lines: 'Clear ' + L.target + ' lines', pearls: 'Collect ' + L.target + ' pearls', stones: 'Break ' + L.target + ' stones', doubles: 'Make ' + L.target + (L.target === 1 ? ' double clear' : ' double clears') })[L.type];
+  const GOAL_TIP = { pearls: 'Clear the line a pearl sits in to pocket it.', stones: 'Stones break when their line clears. Anything the tide soaks counts too.', doubles: 'A double is two or more lines cleared with one piece.' };
 
   // ---------- Profile (saved) ----------
   const P = { coins: 100, best: 0, stars: {}, theme: 'postcard', owned: ['postcard'], muted: false, daily: { date: '', best: 0 }, streak: 0, lastDaily: '', seenHelp: false };
@@ -253,7 +260,7 @@
   }
 
   function startRun(mode, lv) {
-    S = { mode, lv: lv || 0, grid: Array.from({ length: N }, () => Array(N).fill(0)), tide: 0, score: 0, lines: 0, pearls: 0, streak: 0, moves: 0, tray: [null, null, null], over: false, won: false, why: '', paid: 0, revived: false, rs: null, fixed: 0, goal: null };
+    S = { mode, lv: lv || 0, grid: Array.from({ length: N }, () => Array(N).fill(0)), tide: 0, score: 0, lines: 0, pearls: 0, rocks: 0, doubles: 0, streak: 0, moves: 0, tray: [null, null, null], over: false, won: false, why: '', paid: 0, revived: false, rs: null, fixed: 0, goal: null };
     undoSnap = null;
     if (mode === 'voyage') {
       const L = LEVELS[lv - 1], rand = mulberry(L.seed);
@@ -308,7 +315,7 @@
     rows.forEach(r => { for (let c = 0; c < N; c++) add(r, c); });
     cols.forEach(c => { for (let r = 0; r < d; r++) add(r, c); });
     let pearls = 0;
-    cells.forEach(([r, c, v]) => { S.grid[r][c] = 0; if (v & PEARL) pearls++; burst(r, c, v, 3); });
+    cells.forEach(([r, c, v]) => { S.grid[r][c] = 0; if (v & PEARL) pearls++; else if ((v & 15) === STONE) S.rocks++; burst(r, c, v, 3); });
     if (cells.length) fx.flashes.push({ cells, t0: performance.now(), dur: 320 });
     if (pearls) { S.pearls += pearls; floater(pearls > 1 ? pearls + ' pearls!' : 'Pearl!', Math.max(0, cells[0][0] - 1), cells[0][1]); }
     return rows.length + cols.length;
@@ -317,6 +324,7 @@
   function scoreLines(n, r, c) {
     const pts = 10 * n * n + (S.streak > 1 ? 5 * (S.streak - 1) * n : 0);
     S.lines += n;
+    if (n >= 2) S.doubles++;
     S.tide = Math.max(0, S.tide - Math.min(n, CFG.maxRecede));
     floater('+' + pts + (S.streak > 1 ? '  streak x' + S.streak : ''), r, c);
     fx.shake = Math.min(10, 3 + n * 2);
@@ -338,7 +346,7 @@
     S.movesToRise = S.interval;
   }
 
-  const progress = () => !S.goal ? 0 : S.goal.type === 'score' ? S.score : S.goal.type === 'lines' ? S.lines : S.pearls;
+  const progress = () => !S.goal ? 0 : S.goal.type === 'score' ? S.score : S.goal.type === 'lines' ? S.lines : S.goal.type === 'stones' ? S.rocks : S.goal.type === 'doubles' ? S.doubles : S.pearls;
   const goalMet = () => S.goal && progress() >= S.goal.target;
 
   function place(i, r0, c0) {
@@ -443,7 +451,7 @@
   }
 
   // ---------- Screens ----------
-  const TIERS = ['Still Harbour', 'Pebble Cove', 'Gull Rocks', 'The Narrows', 'Foggy Reach', "Wreckers' Bar", 'Storm Sound', 'The Maw'];
+  const TIERS = ['Still Harbour', 'Pebble Cove', 'Kelp Gardens', 'Gull Rocks', 'Lantern Quay', 'The Narrows', 'Saltmarsh', 'Foggy Reach', 'Bell Buoy', "Wreckers' Bar", 'Whale Road', 'Cold Shelf', 'Drowned Steps', 'Siren Shoals', 'Storm Sound', 'Black Skerries', 'Thunder Bight', 'The Maw', "World's Edge", 'Home Light'];
   const STAR = on => '<svg class="star' + (on ? ' on' : '') + '" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.3 6.8.8-5 4.7 1.3 6.8-6-3.4-6.1 3.4 1.4-6.8-5-4.7 6.8-.8z"/></svg>';
   const starRow = (n, total) => Array.from({ length: total }, (_, i) => STAR(i < n)).join('');
   const scallops = (x0, x1, y, w, amp) => { let d = 'M' + x0 + ' ' + y; for (let x = x0; x < x1; x += w) d += 'q' + w / 2 + ' ' + amp + ' ' + w + ' 0'; return d; };
@@ -473,7 +481,7 @@
       const [x, y] = pt(k), left = x < w / 2;
       if (k === 0) d = 'M' + x + ' ' + y;
       else { const [px, py] = pt(k - 1); d += 'C' + px + ' ' + (py + GAP * 0.55) + ' ' + x + ' ' + (y - GAP * 0.55) + ' ' + x + ' ' + y; }
-      if (k % 5 === 0) html += '<span class="tag" style="top:' + (y - 15) + 'px;' + (left ? 'right:8px' : 'left:8px') + ';--tilt:' + (k % 10 ? 3 : -3) + 'deg">' + TIERS[k / 5] + '</span>';
+      if (k % 10 === 0) html += '<span class="tag" style="top:' + (y - 15) + 'px;' + (left ? 'right:8px' : 'left:8px') + ';--tilt:' + (k % 20 ? 3 : -3) + 'deg">' + TIERS[k / 10] + '</span>';
       else if (k % 2) { const wx = Math.round(left ? x + w * 0.4 : x - w * 0.4); doodles += '<path d="M' + (wx - 16) + ' ' + (y + 4) + 'q5.5-8 11 0t11 0t11 0"/>'; }
       html += '<button data-lv="' + L.n + '" style="left:' + x + 'px;top:' + y + 'px;--tilt:' + ((k * 37) % 9 - 4) + 'deg"' + (unlocked(L.n) ? '' : ' disabled') + (next && next.n === L.n ? ' class="next"' : '') + '>' + L.n + '</button>';
       if (P.stars[L.n]) html += '<span class="st" style="left:' + x + 'px;top:' + (y + 32) + 'px">' + starRow(P.stars[L.n], 3) + '</span>';
@@ -488,7 +496,7 @@
     if (id === 'menu') {
       const next = LEVELS.find(L => !P.stars[L.n]);
       $('mCoins').textContent = P.coins;
-      $('mVoyageSub').innerHTML = (next ? 'Level ' + next.n + ' · ' + TIERS[Math.floor((next.n - 1) / 5)] : 'Every level cleared') + ' · ' + STAR(true) + ' ' + totalStars();
+      $('mVoyageSub').innerHTML = (next ? 'Level ' + next.n + ' · ' + TIERS[Math.floor((next.n - 1) / 10)] : 'Every level cleared') + ' · ' + STAR(true) + ' ' + totalStars();
       $('mEndlessSub').textContent = P.best ? 'Best so far: ' + P.best : 'How long can you hold back the sea?';
       const played = P.lastDaily === today();
       $('mDailySub').textContent = played ? 'Today: ' + P.daily.best + ' · ' + P.streak + (P.streak === 1 ? ' day' : ' days') + ' running' : 'One board a day, 50 coins for showing up';
@@ -511,7 +519,7 @@
 
   function preLevel(n) {
     const L = LEVELS[n - 1];
-    modal('Level ' + n, '<p>' + TIERS[Math.floor((n - 1) / 5)] + '</p><div class="big" style="font-size:1.6rem">' + goalText(L) + '</div><p>The tide comes up every ' + L.interval + ' moves' + (L.tide ? ', and it is already ' + L.tide + (L.tide === 1 ? ' row' : ' rows') + ' in' : '') + '.</p>' + (L.type === 'pearls' ? '<p>Clear the line a pearl sits in to pocket it.</p>' : '') + '<p>Finish with the water low for three stars.</p>', [{ t: 'Cast off', primary: true, fn: () => startRun('voyage', n) }, { t: 'Back', fn: () => show('map') }]);
+    modal('Level ' + n, '<p>' + TIERS[Math.floor((n - 1) / 10)] + '</p><div class="big" style="font-size:1.6rem">' + goalText(L) + '</div><p>The tide comes up every ' + L.interval + ' moves' + (L.tide ? ', and it is already ' + L.tide + (L.tide === 1 ? ' row' : ' rows') + ' in' : '') + '.</p>' + (GOAL_TIP[L.type] ? '<p>' + GOAL_TIP[L.type] + '</p>' : '') + '<p>Finish with the water low for three stars.</p>', [{ t: 'Cast off', primary: true, fn: () => startRun('voyage', n) }, { t: 'Back', fn: () => show('map') }]);
   }
 
   function applyTheme() {
