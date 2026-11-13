@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Tidewater (prototype)</title>
+<meta name="description" content="Tidewater: a block puzzle where the tide keeps rising. Prototype.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0a1a2e">
+<style>
+  :root { --bg: #0a1a2e; --panel: #10294a; --line: #1f4470; --text: #f3ead7; --muted: #9db4cf; --sand: #ffd98a; --water: #38a3d6; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { margin: 0; background: radial-gradient(120% 80% at 50% 0%, #12335a 0%, var(--bg) 60%); color: var(--text); font: 16px/1.4 system-ui, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+  #app { height: 100%; max-width: 520px; margin: 0 auto; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; }
+  .top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  h1 { margin: 0; font-size: 1.25rem; letter-spacing: 0.08em; color: var(--sand); }
+  .btns { display: flex; gap: 6px; }
+  button { font: 600 0.8rem/1 system-ui, sans-serif; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; cursor: pointer; }
+  button:active { transform: translateY(1px); }
+  .hud { width: 100%; display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 8px; margin: 10px 0 8px; }
+  .stat, .tide { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 7px 10px; text-align: center; }
+  .stat span, .tide span { display: block; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .stat b { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+  #pips { display: flex; justify-content: center; gap: 6px; margin-top: 7px; height: 14px; }
+  #pips i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--water); }
+  #pips i.on { background: var(--water); }
+  .tide.warn { border-color: var(--water); box-shadow: 0 0 18px rgba(56, 163, 214, 0.45); }
+  canvas { display: block; touch-action: none; }
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(5, 14, 28, 0.8); padding: 20px; z-index: 5; }
+  .overlay.show { display: flex; }
+  .card { width: 100%; max-width: 360px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 20px; text-align: center; }
+  .card h2 { margin: 0 0 8px; color: var(--sand); font-size: 1.6rem; letter-spacing: 0.06em; }
+  .card p { margin: 0 0 10px; color: var(--muted); }
+  .card ul { text-align: left; margin: 0 0 16px; padding-left: 20px; color: var(--text); }
+  .card li { margin: 6px 0; }
+  .card .big { font-size: 2.4rem; font-weight: 700; color: var(--text); margin: 2px 0 2px; font-variant-numeric: tabular-nums; }
+  .card button { background: var(--sand); color: #1a1405; border: 0; font-size: 1rem; padding: 14px 28px; border-radius: 12px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <h1>TIDEWATER</h1>
+    <div class="btns">
+      <button id="helpBtn">How to play</button>
+      <button id="soundBtn">Sound on</button>
+      <button id="restartBtn">Restart</button>
+    </div>
+  </div>
+  <div class="hud">
+    <div class="stat"><span>Score</span><b id="score">0</b></div>
+    <div class="tide" id="tideBox"><span id="tideLabel">Tide in</span><div id="pips"></div></div>
+    <div class="stat"><span>Best</span><b id="best">0</b></div>
+  </div>
+  <canvas id="c"></canvas>
+</div>
+
+<div class="overlay show" id="helpOv">
+  <div class="card">
+    <h2>Tidewater</h2>
+    <p>A block puzzle where the sea keeps coming in.</p>
+    <ul>
+      <li>Drag pieces onto the board. Fill a whole row or column to clear it.</li>
+      <li>Every few moves the tide rises one row and drowns whatever is there.</li>
+      <li>Each line you clear pushes the tide back down.</li>
+      <li>Columns only need filling above the waterline, so high water is your chance to fight back.</li>
+      <li>The run ends when no piece fits, or the tide covers the board.</li>
+    </ul>
+    <button id="playBtn">Play</button>
+  </div>
+</div>
+
+<div class="overlay" id="overOv">
+  <div class="card">
+    <h2 id="overTitle">High tide</h2>
+    <p id="overWhy"></p>
+    <div class="big" id="overScore">0</div>
+    <p id="overBest"></p>
+    <button id="againBtn">Play again</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Tuning ----------
+  const N = 8;
+  const CFG = {
+    startInterval: 4,   // placements between tide rises at the start
+    minInterval: 1,     // fastest the tide ever gets (late game: every move)
+    linesPerSpeedUp: 25, // every this many cleared lines, the tide gets one move faster
+    maxRecede: 2,       // most rows the tide falls back from a single move
+  };
+  const COLORS = ['', '#f4a259', '#f25f5c', '#ffe066', '#b8e07a', '#b388eb', '#f7b2bd', '#f3ead7'];
+
+  // [weight, rows]
+  const SHAPES = [
+    [2, ['#']],
+    [3, ['##']], [3, ['#', '#']],
+    [3, ['###']], [3, ['#', '#', '#']],
+    [2, ['####']], [2, ['#', '#', '#', '#']],
+    [1, ['#####']], [1, ['#', '#', '#', '#', '#']],
+    [4, ['##', '##']],
+    [1, ['###', '###', '###']],
+    [1, ['###', '###']], [1, ['##', '##', '##']],
+    [2, ['#.', '##']], [2, ['.#', '##']], [2, ['##', '#.']], [2, ['##', '.#']],
+    [1, ['#..', '#..', '###']], [1, ['..#', '..#', '###']], [1, ['###', '#..', '#..']], [1, ['###', '..#', '..#']],
+    [1, ['###', '.#.']], [1, ['.#.', '###']], [1, ['#.', '##', '#.']], [1, ['.#', '##', '.#']],
+    [1, ['##.', '.##']], [1, ['.##', '##.']], [1, ['#.', '##', '.#']], [1, ['.#', '##', '#.']],
+    [1, ['#.', '#.', '##']], [1, ['.#', '.#', '##']], [1, ['###', '#..']], [1, ['###', '..#']],
+  ];
+  const TOTAL_W = SHAPES.reduce((a, s) => a + s[0], 0);
+
+  function makePiece() {
+    let x = Math.random() * TOTAL_W, rows = SHAPES[0][1];
+    for (const [w, r] of SHAPES) { if ((x -= w) < 0) { rows = r; break; } }
+    const cells = [];
+    rows.forEach((line, r) => [...line].forEach((ch, c) => { if (ch === '#') cells.push([r, c]); }));
+    return { cells, h: rows.length, w: rows[0].length, color: 1 + Math.floor(Math.random() * (COLORS.length - 1)) };
+  }
+
+  // ---------- State ----------
+  let S;
+  const fx = { flashes: [], floaters: [], dispTide: 0 };
+  let best = 0, muted = false;
+  try { best = +localStorage.getItem('tidewater.best') || 0; muted = localStorage.getItem('tidewater.muted') === '1'; } catch (e) {}
+
+  const dry = () => N - S.tide;
+  const riseInterval = () => Math.max(CFG.minInterval, CFG.startInterval - Math.floor(S.lines / CFG.linesPerSpeedUp));
+
+  function newGame() {
+    S = { grid: Array.from({ length: N }, () => Array(N).fill(0)), tide: 0, score: 0, lines: 0, streak: 0, moves: 0, tray: [null, null, null], over: false, why: '' };
+    S.interval = riseInterval();
+    S.movesToRise = S.interval;
+    fx.flashes.length = 0; fx.floaters.length = 0; fx.dispTide = 0;
+    refill();
+    hud();
+  }
+
+  function canPlace(p, r0, c0, grid = S.grid) {
+    const d = dry();
+    for (const [r, c] of p.cells) {
+      const rr = r0 + r, cc = c0 + c;
+      if (rr < 0 || cc < 0 || rr >= d || cc >= N || grid[rr][cc]) return false;
+    }
+    return true;
+  }
+  function fitsAnywhere(p) {
+    for (let r = 0; r <= dry() - p.h; r++) for (let c = 0; c <= N - p.w; c++) if (canPlace(p, r, c)) return true;
+    return false;
+  }
+  const anyFit = () => S.tray.some(p => p && fitsAnywhere(p));
+
+  function refill() {
+    for (let tries = 0; tries < 60; tries++) {
+      S.tray = [makePiece(), makePiece(), makePiece()];
+      if (anyFit()) return;
+    }
+  }
+
+  // Rows and columns that are complete above the waterline.
+  function fullLines(grid) {
+    const d = dry(), rows = [], cols = [];
+    for (let r = 0; r < d; r++) if (grid[r].every(v => v)) rows.push(r);
+    if (d > 0) for (let c = 0; c < N; c++) { let ok = true; for (let r = 0; r < d; r++) if (!grid[r][c]) { ok = false; break; } if (ok) cols.push(c); }
+    return { rows, cols };
+  }
+
+  function clearLines() {
+    const { rows, cols } = fullLines(S.grid), d = dry(), seen = new Set(), cells = [];
+    const add = (r, c) => { const k = r * N + c; if (!seen.has(k)) { seen.add(k); cells.push([r, c, S.grid[r][c]]); } };
+    rows.forEach(r => { for (let c = 0; c < N; c++) add(r, c); });
+    cols.forEach(c => { for (let r = 0; r < d; r++) add(r, c); });
+    cells.forEach(([r, c]) => { S.grid[r][c] = 0; });
+    if (cells.length) fx.flashes.push({ cells, t0: performance.now(), dur: 320 });
+    return rows.length + cols.length;
+  }
+
+  function scoreLines(n, r, c) {
+    const pts = 10 * n * n + (S.streak > 1 ? 5 * (S.streak - 1) * n : 0);
+    S.lines += n;
+    S.tide = Math.max(0, S.tide - Math.min(n, CFG.maxRecede));
+    floater('+' + pts + (S.streak > 1 ? '  streak x' + S.streak : ''), r, c);
+    sfx.clear(n);
+    return pts;
+  }
+
+  function rise() {
+    S.tide++;
+    if (S.tide >= N) { end('The tide covered the whole board.'); return; }
+    const r = N - S.tide, drowned = [];
+    for (let c = 0; c < N; c++) if (S.grid[r][c]) { drowned.push([r, c, S.grid[r][c]]); S.grid[r][c] = 0; }
+    if (drowned.length) fx.flashes.push({ cells: drowned, t0: performance.now(), dur: 450 });
+    sfx.rise();
+    // The rising water can finish a column for you.
+    const n = clearLines();
+    if (n) S.score += scoreLines(n, Math.max(0, dry() - 1), N / 2 - 0.5);
+    S.interval = riseInterval();
+    S.movesToRise = S.interval;
+  }
+
+  function place(i, r0, c0) {
+    const p = S.tray[i];
+    if (!p || S.over || !canPlace(p, r0, c0)) return false;
+    for (const [r, c] of p.cells) S.grid[r0 + r][c0 + c] = p.color;
+    S.tray[i] = null;
+    S.moves++;
+    S.score += p.cells.length;
+    sfx.place();
+    const n = clearLines();
+    if (n) { S.streak++; S.score += scoreLines(n, r0 + p.h / 2 - 0.5, c0 + p.w / 2 - 0.5); } else S.streak = 0;
+    if (--S.movesToRise <= 0) rise();
+    if (!S.over) {
+      if (S.tray.every(x => !x)) refill();
+      if (!anyFit()) end('None of your pieces fit above the water.');
+    }
+    if (S.score > best) { best = S.score; try { localStorage.setItem('tidewater.best', best); } catch (e) {} }
+    hud();
+    return true;
+  }
+
+  function end(why) {
+    S.over = true; S.why = why;
+    sfx.over();
+    setTimeout(() => {
+      if (!S.over) return;
+      $('overTitle').textContent = S.tide >= N ? 'High tide' : 'No room left';
+      $('overWhy').textContent = why;
+      $('overScore').textContent = S.score;
+      $('overBest').textContent = S.score >= best && S.score > 0 ? 'New best!' : 'Best: ' + best;
+      $('overOv').classList.add('show');
+    }, 700);
+  }
+
+  // ---------- HUD ----------
+  const $ = id => document.getElementById(id);
+  function hud() {
+    $('score').textContent = S.score;
+    $('best').textContent = best;
+    const left = Math.max(0, S.movesToRise);
+    $('tideLabel').textContent = 'Tide in ' + left + (left === 1 ? ' move' : ' moves');
+    $('pips').innerHTML = Array.from({ length: S.interval }, (_, i) => '<i class="' + (i < left ? 'on' : '') + '"></i>').join('');
+    $('tideBox').classList.toggle('warn', left === 1 && !S.over);
+  }
+
+  // ---------- Sound ----------
+  let ac = null;
+  function tone(f, d, type, v, when, f2) {
+    if (muted) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + (when || 0);
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(f, t);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+      g.gain.setValueAtTime(v || 0.08, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g).connect(ac.destination);
+      o.start(t); o.stop(t + d + 0.02);
+    } catch (e) {}
+  }
+  const buzz = ms => { if (!muted && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } };
+  const sfx = {
+    place: () => { tone(220, 0.09, 'triangle', 0.1, 0, 140); buzz(8); },
+    clear: n => { [523, 659, 784, 1047].slice(0, 2 + Math.min(n, 2)).forEach((f, i) => tone(f, 0.16, 'sine', 0.09, i * 0.06)); buzz(25); },
+    rise: () => tone(90, 0.5, 'sine', 0.14, 0, 180),
+    over: () => { tone(330, 0.25, 'triangle', 0.1, 0, 220); tone(220, 0.45, 'triangle', 0.1, 0.22, 110); },
+  };
+
+  // ---------- Layout ----------
+  const cv = $('c'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, dpr = 1, cell = 0, bx = 0, by = 0, trayY = 0, trayH = 0;
+  const PAD = 8;
+  function layout() {
+    const app = $('app'), used = cv.getBoundingClientRect().top - app.getBoundingClientRect().top;
+    const availH = window.innerHeight - used - 24, availW = Math.min(window.innerWidth - 24, 496);
+    W = Math.max(220, Math.floor(Math.min(availW, availH / 1.42)));
+    H = Math.floor(Math.min(Math.max(availH, W * 1.42), W * 1.6));
+    dpr = Math.min(window.devicePixelRatio || 1, 3);
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    cell = (W - PAD * 2) / N; bx = PAD; by = PAD;
+    trayY = by + cell * N + PAD * 2; trayH = H - trayY;
+  }
+  window.addEventListener('resize', layout);
+
+  // ---------- Drawing ----------
+  function rr(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function block(x, y, s, color, alpha) {
+    const g = Math.max(1, s * 0.04);
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    ctx.fillStyle = color; rr(x + g, y + g, s - g * 2, s - g * 2, s * 0.2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'; rr(x + s * 0.16, y + s * 0.13, s * 0.68, s * 0.2, s * 0.1); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.16)'; rr(x + s * 0.16, y + s * 0.74, s * 0.68, s * 0.13, s * 0.06); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  function drawPiece(p, x, y, s, alpha) { for (const [r, c] of p.cells) block(x + c * s, y + r * s, s, COLORS[p.color], alpha); }
+  function floater(text, r, c) { fx.floaters.push({ text, x: bx + (c + 0.5) * cell, y: by + (r + 0.5) * cell, t0: performance.now() }); }
+
+  let drag = null;
+  function draw(now) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const bs = cell * N;
+
+    // board
+    ctx.fillStyle = '#0c2038'; rr(bx - 6, by - 6, bs + 12, bs + 12, 16); ctx.fill();
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const x = bx + c * cell, y = by + r * cell;
+      if (S.grid[r][c]) block(x, y, cell, COLORS[S.grid[r][c]]);
+      else { ctx.fillStyle = '#15345a'; rr(x + 1.5, y + 1.5, cell - 3, cell - 3, cell * 0.18); ctx.fill(); }
+    }
+
+    // ghost + lines that would clear
+    if (drag && drag.valid) {
+      ctx.fillStyle = 'rgba(255,217,138,0.2)';
+      const d = dry();
+      drag.rows.forEach(r => ctx.fillRect(bx, by + r * cell, bs, cell));
+      drag.cols.forEach(c => ctx.fillRect(bx + c * cell, by, cell, d * cell));
+      drawPiece(drag.p, bx + drag.c * cell, by + drag.r * cell, cell, 0.5);
+    }
+
+    // clearing / drowning cells
+    fx.flashes = fx.flashes.filter(f => now - f.t0 < f.dur);
+    for (const f of fx.flashes) {
+      const k = (now - f.t0) / f.dur, s = cell * (1 - k * 0.5), o = (cell - s) / 2;
+      for (const [r, c, col] of f.cells) block(bx + c * cell + o, by + r * cell + o, s, COLORS[col], 1 - k);
+    }
+
+    // row about to flood
+    if (!S.over && S.movesToRise === 1 && S.tide < N) {
+      ctx.fillStyle = 'rgba(56,163,214,' + (0.2 + 0.12 * Math.sin(now * 0.008)) + ')';
+      ctx.fillRect(bx, by + (dry() - 1) * cell, bs, cell);
+    }
+
+    // water
+    fx.dispTide += (S.tide - fx.dispTide) * 0.14;
+    if (Math.abs(S.tide - fx.dispTide) < 0.002) fx.dispTide = S.tide;
+    if (fx.dispTide > 0.01) {
+      const top = by + (N - fx.dispTide) * cell, bottom = by + bs + 6;
+      ctx.save();
+      rr(bx - 6, by - 6, bs + 12, bs + 12, 16); ctx.clip();
+      const grad = ctx.createLinearGradient(0, top, 0, bottom);
+      grad.addColorStop(0, 'rgba(72,180,226,0.93)'); grad.addColorStop(1, 'rgba(16,78,134,0.97)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.moveTo(bx - 6, bottom);
+      for (let x = bx - 6; x <= bx + bs + 6; x += 4) ctx.lineTo(x, top + Math.sin(x * 0.045 + now * 0.003) * 2.6 + Math.sin(x * 0.11 - now * 0.002) * 1.2);
+      ctx.lineTo(bx + bs + 6, bottom); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(220,245,255,0.75)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let x = bx - 6; x <= bx + bs + 6; x += 4) { const y = top + Math.sin(x * 0.045 + now * 0.003) * 2.6 + Math.sin(x * 0.11 - now * 0.002) * 1.2; x === bx - 6 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // tray
+    const slotW = W / 3, ts = cell * 0.5;
+    S.tray.forEach((p, i) => {
+      if (!p || (drag && drag.i === i)) return;
+      const fits = fitsAnywhere(p);
+      drawPiece(p, i * slotW + (slotW - p.w * ts) / 2, trayY + (trayH - p.h * ts) / 2, ts, fits ? 1 : 0.3);
+    });
+
+    // dragged piece
+    if (drag) drawPiece(drag.p, drag.x, drag.y, cell, drag.valid ? 0.35 : 0.9);
+
+    // floating score text
+    fx.floaters = fx.floaters.filter(f => now - f.t0 < 900);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '700 ' + Math.round(cell * 0.5) + 'px system-ui, sans-serif';
+    for (const f of fx.floaters) {
+      const k = (now - f.t0) / 900;
+      ctx.globalAlpha = 1 - k * k;
+      const x = Math.min(Math.max(f.x, bx + cell * 1.6), bx + bs - cell * 1.6);
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(5,14,28,0.8)'; ctx.strokeText(f.text, x, f.y - k * cell);
+      ctx.fillStyle = '#ffd98a'; ctx.fillText(f.text, x, f.y - k * cell);
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+
+  // ---------- Input ----------
+  const overlayOpen = () => document.querySelector('.overlay.show');
+  function pos(e) { const b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; }
+  function moveDrag(e) {
+    const [px, py] = pos(e), p = drag.p;
+    drag.x = px - p.w * cell / 2;
+    // lift the piece clear of a finger; keep it under a mouse pointer
+    drag.y = e.pointerType === 'mouse' ? py - p.h * cell / 2 : py - p.h * cell - cell * 0.9;
+    const c = Math.round((drag.x - bx) / cell), r = Math.round((drag.y - by) / cell);
+    if (c === drag.c && r === drag.r) return;
+    drag.c = c; drag.r = r; drag.valid = canPlace(p, r, c);
+    drag.rows = []; drag.cols = [];
+    if (drag.valid) {
+      const g = S.grid.map(row => row.slice());
+      for (const [rr2, cc2] of p.cells) g[r + rr2][c + cc2] = p.color;
+      const f = fullLines(g); drag.rows = f.rows; drag.cols = f.cols;
+    }
+  }
+  cv.addEventListener('pointerdown', e => {
+    if (drag || S.over || overlayOpen()) return;
+    const [px, py] = pos(e);
+    if (py < trayY - PAD) return;
+    const i = Math.min(2, Math.max(0, Math.floor(px / (W / 3)))), p = S.tray[i];
+    if (!p) return;
+    drag = { i, p, id: e.pointerId, r: NaN, c: NaN, valid: false, rows: [], cols: [], x: 0, y: 0 };
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    moveDrag(e);
+    e.preventDefault();
+  });
+  cv.addEventListener('pointermove', e => { if (drag && e.pointerId === drag.id) moveDrag(e); });
+  function drop(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag; drag = null;
+    if (e.type === 'pointerup' && d.valid) place(d.i, d.r, d.c);
+  }
+  cv.addEventListener('pointerup', drop);
+  cv.addEventListener('pointercancel', drop);
+
+  // ---------- Buttons ----------
+  const setSound = () => { $('soundBtn').textContent = muted ? 'Sound off' : 'Sound on'; };
+  $('soundBtn').onclick = () => { muted = !muted; try { localStorage.setItem('tidewater.muted', muted ? '1' : '0'); } catch (e) {} setSound(); };
+  $('restartBtn').onclick = () => { $('overOv').classList.remove('show'); newGame(); };
+  $('againBtn').onclick = () => { $('overOv').classList.remove('show'); newGame(); };
+  $('helpBtn').onclick = () => $('helpOv').classList.add('show');
+  $('playBtn').onclick = () => $('helpOv').classList.remove('show');
+
+  // ---------- Go ----------
+  setSound();
+  newGame();
+  layout();
+  requestAnimationFrame(draw);
+
+  // Hook for automated playtests.
+  window.__tw = { get S() { return S; }, CFG, N, place, canPlace, fullLines, newGame, dry };
+})();
+</script>
+</body>
+</html>
