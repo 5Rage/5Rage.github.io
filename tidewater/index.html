@@ -45,6 +45,12 @@
   /* sub screens */
   .bar { width: 100%; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   .bar h2 { margin: 0; font-size: 1.3rem; font-weight: 800; flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar h2 .left { display: inline-block; font-size: 0.8em; background: var(--text); color: var(--paper); border-radius: 6px 9px 7px 10px; padding: 3px 8px 1px; margin-left: 4px; transform: rotate(-2deg); }
+  .bar h2 .left.low { background: var(--accent); color: var(--onaccent); }
+  .seas { width: 100%; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding-right: 4px; }
+  .seas b { flex: 1; text-align: center; font-weight: 800; }
+  .seas b span { display: block; font-weight: 500; font-size: 0.82rem; color: var(--muted); }
+  #levels button.storm:not(:disabled):not(.next) { background: var(--text); color: var(--paper); }
   .scroll { width: 100%; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 4px 4px 16px; }
   #levels { position: relative; width: 100%; }
   #levels svg { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -115,6 +121,7 @@
 
   <section class="screen" id="map">
     <div class="bar"><button class="ico" data-go="menu" aria-label="Back"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><h2>The voyage</h2><span class="purse" id="mapStars"></span></div>
+    <div class="seas"><button class="ico" id="seaPrev" aria-label="Earlier sea"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><b id="seaName"></b><button class="ico" id="seaNext" aria-label="Next sea"><svg class="ic" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>
     <div class="scroll"><div id="levels"></div></div>
   </section>
 
@@ -154,7 +161,7 @@
   const $ = id => document.getElementById(id);
 
   // ---------- Tuning ----------
-  const N = 8, STONE = 8, PEARL = 16;
+  const N = 8, STONE = 8, IRON = 9, PEARL = 16;
   const CFG = {
     startInterval: 3,    // placements between tide rises at the start (endless / daily)
     minInterval: 2,      // fastest the tide gets
@@ -190,25 +197,32 @@
   const TOTAL_W = SHAPES.reduce((a, s) => a + s[0], 0);
 
   // 40 voyage levels: the goal rotates, the sea gets rougher every five.
-  // 200 voyage levels in 20 waters of ten. Each water ramps up, and the waters get rougher until about 150.
-  const GOALS = ['lines', 'score', 'pearls', 'stones', 'doubles'];
+  // 1000 voyage levels: 20 seas of fifty. Difficulty saw-tooths every ten levels and keeps climbing to the end:
+  // faster tide and bigger goals up to about 150, then move limits tighten, stones turn to iron and storms arrive.
+  const GOALS = ['lines', 'score', 'pearls', 'stones', 'doubles'], PER_SEA = 50;
+  const TUNE = { slack: 2.4, squeeze: 1.0 }; // move limit = par * (slack - squeeze * progress)
   const SEED_FIX = {}; // level number -> replacement seed, for layouts that playtested as unfair
-  const LEVELS = Array.from({ length: 200 }, (_, k) => {
-    const n = k + 1, water = Math.floor(k / 10), pos = k % 10;
-    const D = Math.min(1, water / 14) * 0.7 + (pos / 9) * 0.3; // 0 easy .. 1 hard
-    const type = GOALS[(k * 3 + water) % 5];
-    const target = type === 'score' ? 150 + Math.round(D * 60) * 10 : type === 'lines' ? 5 + Math.round(D * 18) : type === 'pearls' ? 3 + Math.round(D * 6) : type === 'stones' ? 4 + Math.round(D * 9) : 1 + Math.round(D * 4);
-    const stones = Math.round(D * 10) + (k % 4);
+  const LEVELS = Array.from({ length: 1000 }, (_, k) => {
+    const n = k + 1, pos = k % 10;
+    const E = Math.min(1, k / 150), X = Math.max(0, (k - 150) / 849);
+    const D = E * 0.7 + (pos / 9) * 0.3, up = 1 + X * 0.5;
+    const type = GOALS[(k * 3 + Math.floor(k / 10)) % 5], surge = (n % 10 === 0 && k >= 200) || (n % 5 === 0 && k >= 600) ? 2 : 1;
+    const target = type === 'score' ? Math.round((150 + D * 600) * up * (surge > 1 ? 0.75 : 1) / 10) * 10 : type === 'lines' ? Math.round((5 + D * 18) * up) : type === 'pearls' ? Math.min(9, 3 + Math.round(D * 6 + X * 2)) : type === 'stones' ? Math.round((4 + D * 9) * up) : Math.min(4, Math.round((1 + D * 4) * up));
+    const rocks = Math.max(type === 'stones' ? target : 0, Math.round(D * 10 + X * 4) + (k % 4));
+    const iron = k < 100 ? 0 : Math.round(rocks * Math.min(0.6, (k - 100) / 600));
+    const par = type === 'score' ? target / 9 : type === 'lines' ? 8 + target * 1.8 : type === 'pearls' ? 14 + target * 3.2 : type === 'stones' ? 10 + target * 1.6 : 8 + target * 6;
     return {
-      n, type, target,
+      n, type, target, iron, par,
       interval: D < 0.3 ? 4 : D < 0.72 ? 3 : 2,
       tide: Math.min(3, Math.round(D * 2.6 + (k % 3) * 0.3)),
-      stones: type === 'stones' ? Math.max(stones, target) : stones,
+      stones: rocks - iron,
+      get limit() { return k < 60 ? 0 : Math.round(par * (TUNE.slack - X * TUNE.squeeze - (pos / 9) * 0.2)); },
+      surge,
       seed: SEED_FIX[n] || 7000 + n,
     };
   });
   const goalText = L => ({ score: 'Score ' + L.target + ' points', lines: 'Clear ' + L.target + ' lines', pearls: 'Collect ' + L.target + ' pearls', stones: 'Break ' + L.target + ' stones', doubles: 'Make ' + L.target + (L.target === 1 ? ' double clear' : ' double clears') })[L.type];
-  const GOAL_TIP = { pearls: 'Clear the line a pearl sits in to pocket it.', stones: 'Stones break when their line clears. Anything the tide soaks counts too.', doubles: 'A double is two or more lines cleared with one piece.' };
+  const GOAL_TIP = { pearls: 'Clear the line a pearl sits in to pocket it.', stones: 'Stones break when their line clears. Anything the tide soaks counts too.', iron: 'Iron-bound stones take two clears: the first only knocks the iron off.', storm: 'Storm level: the tide comes up two rows at a time.', doubles: 'A double is two or more lines cleared with one piece.' };
 
   // ---------- Profile (saved) ----------
   const P = { coins: 100, best: 0, stars: {}, theme: 'postcard', owned: ['postcard'], muted: false, daily: { date: '', best: 0 }, streak: 0, lastDaily: '', seenHelp: false };
@@ -251,22 +265,25 @@
   const riseInterval = () => S.fixed || Math.max(CFG.minInterval, CFG.startInterval - Math.floor(S.lines / CFG.linesPerSpeedUp));
 
   function scatter(rand, count, value, minRow) {
+    let placed = 0;
     for (let k = 0, tries = 0; k < count && tries < 400; tries++) {
       const r = minRow + Math.floor(rand() * (dry() - minRow)), c = Math.floor(rand() * N);
       if (r < 0 || S.grid[r][c]) continue;
       if (S.grid[r].filter(v => v).length >= N - 2) continue; // never start with a nearly full row
-      S.grid[r][c] = value; k++;
+      S.grid[r][c] = value; k++; placed = k;
     }
+    return placed;
   }
 
   function startRun(mode, lv) {
-    S = { mode, lv: lv || 0, grid: Array.from({ length: N }, () => Array(N).fill(0)), tide: 0, score: 0, lines: 0, pearls: 0, rocks: 0, doubles: 0, streak: 0, moves: 0, tray: [null, null, null], over: false, won: false, why: '', paid: 0, revived: false, rs: null, fixed: 0, goal: null };
+    S = { mode, lv: lv || 0, grid: Array.from({ length: N }, () => Array(N).fill(0)), tide: 0, score: 0, lines: 0, pearls: 0, rocks: 0, doubles: 0, limit: 0, surge: 1, streak: 0, moves: 0, tray: [null, null, null], over: false, won: false, why: '', paid: 0, revived: false, rs: null, fixed: 0, goal: null };
     undoSnap = null;
     if (mode === 'voyage') {
       const L = LEVELS[lv - 1], rand = mulberry(L.seed);
-      S.tide = L.tide; S.fixed = L.interval; S.goal = { type: L.type, target: L.target };
+      S.tide = L.tide; S.fixed = L.interval; S.goal = { type: L.type, target: L.target }; S.limit = L.limit; S.surge = L.surge;
+      if (L.type === 'pearls') S.goal.target = scatter(rand, L.target, STONE | PEARL, 1);
+      scatter(rand, L.iron, IRON, 2);
       scatter(rand, L.stones, STONE, 2);
-      if (L.type === 'pearls') scatter(rand, L.target, STONE | PEARL, 1);
     } else if (mode === 'daily') {
       const seed = +today().replace(/-/g, '');
       scatter(mulberry(seed), 6, STONE, 3);
@@ -315,7 +332,7 @@
     rows.forEach(r => { for (let c = 0; c < N; c++) add(r, c); });
     cols.forEach(c => { for (let r = 0; r < d; r++) add(r, c); });
     let pearls = 0;
-    cells.forEach(([r, c, v]) => { S.grid[r][c] = 0; if (v & PEARL) pearls++; else if ((v & 15) === STONE) S.rocks++; burst(r, c, v, 3); });
+    cells.forEach(([r, c, v]) => { S.grid[r][c] = (v & 15) === IRON ? STONE : 0; if (v & PEARL) pearls++; else if ((v & 15) === STONE) S.rocks++; burst(r, c, v, 3); });
     if (cells.length) fx.flashes.push({ cells, t0: performance.now(), dur: 320 });
     if (pearls) { S.pearls += pearls; floater(pearls > 1 ? pearls + ' pearls!' : 'Pearl!', Math.max(0, cells[0][0] - 1), cells[0][1]); }
     return rows.length + cols.length;
@@ -333,11 +350,12 @@
   }
 
   function rise() {
-    S.tide++;
-    if (S.tide >= N) { end('The tide covered the whole board.'); return; }
-    // Whatever the water covers turns to stone and is still there when the tide goes out.
-    const r = N - S.tide;
-    for (let c = 0; c < N; c++) if (S.grid[r][c]) { S.grid[r][c] = STONE | (S.grid[r][c] & PEARL); burst(r, c, 0, 1); }
+    // Whatever the water covers turns to stone and is still there when the tide goes out. Storms take two rows.
+    for (let k = 0; k < S.surge && dry() > 1; k++) {
+      S.tide++;
+      const r = N - S.tide;
+      for (let c = 0; c < N; c++) { const v = S.grid[r][c]; if (v) { if ((v & 15) !== IRON) S.grid[r][c] = STONE | (v & PEARL); burst(r, c, 0, 1); } }
+    }
     sfx.rise();
     // The rising water can finish a column for you.
     const n = clearLines();
@@ -365,7 +383,8 @@
     if (goalMet()) win();
     else if (!S.over) {
       if (S.tray.every(x => !x)) refill();
-      if (!anyFit()) end('None of your pieces fit above the water.');
+      if (S.limit && S.moves >= S.limit) end('Out of moves.');
+      else if (!anyFit()) end('None of your pieces fit above the water.');
     }
     if (S.mode === 'endless' && S.score > P.best) P.best = S.score;
     hud();
@@ -409,12 +428,13 @@
       body += '<div class="big">' + S.score + '</div><p>' + (S.score >= bestNow && S.score > 0 ? 'New best!' : 'Best: ' + bestNow) + (earned ? ' &middot; <i class="coin"></i>+' + earned : '') + '</p>' + extra;
       btns.push({ t: 'Play again', primary: S.revived || P.coins < COST.revive, fn: () => startRun(S.mode) }, { t: 'Menu', fn: () => show('menu') });
     }
-    modal('Swamped!', body, btns);
+    modal(S.why === 'Out of moves.' ? 'Out of moves' : 'Swamped!', body, btns);
   }
 
   function revive() {
     P.coins -= COST.revive; save();
     S.over = false; S.revived = true; S.why = '';
+    if (S.limit) S.limit = Math.max(S.limit, S.moves) + 8;
     S.tide = Math.max(0, S.tide - 3);
     for (let r = Math.max(0, dry() - 3); r < dry(); r++) for (let c = 0; c < N; c++) { if (S.grid[r][c]) burst(r, c, S.grid[r][c], 2); S.grid[r][c] = S.grid[r][c] & PEARL ? S.grid[r][c] : 0; }
     S.movesToRise = S.interval;
@@ -472,23 +492,31 @@
       '<path d="' + scallops(-6, 332, 122, 26, 10) + 'V140H-6z" fill="var(--w3)"' + s + '/></svg>';
   }
 
+  let mapSea = 0;
   function buildMap() {
-    const box = $('levels'), w = box.clientWidth || 340, GAP = 80;
-    const pt = k => [Math.round(w / 2 + Math.sin(k * 0.95 + 0.4) * w * 0.29), 50 + k * GAP];
-    const h = 50 + LEVELS.length * GAP + 10, next = LEVELS.find(L => !P.stars[L.n]);
+    const box = $('levels'), w = box.clientWidth || 340, GAP = 80, seas = LEVELS.length / PER_SEA;
+    mapSea = Math.max(0, Math.min(seas - 1, mapSea));
+    const first = mapSea * PER_SEA, list = LEVELS.slice(first, first + PER_SEA);
+    const pt = k => [Math.round(w / 2 + Math.sin(k * 0.95 + 0.4 + mapSea) * w * 0.29), 50 + k * GAP];
+    const h = 50 + list.length * GAP + 10, next = LEVELS.find(L => !P.stars[L.n]);
     let d = '', html = '', doodles = '';
-    LEVELS.forEach((L, k) => {
-      const [x, y] = pt(k), left = x < w / 2;
+    list.forEach((L, k) => {
+      const [x, y] = pt(k), left = x < w / 2, storm = L.surge > 1;
       if (k === 0) d = 'M' + x + ' ' + y;
       else { const [px, py] = pt(k - 1); d += 'C' + px + ' ' + (py + GAP * 0.55) + ' ' + x + ' ' + (y - GAP * 0.55) + ' ' + x + ' ' + y; }
-      if (k % 10 === 0) html += '<span class="tag" style="top:' + (y - 15) + 'px;' + (left ? 'right:8px' : 'left:8px') + ';--tilt:' + (k % 20 ? 3 : -3) + 'deg">' + TIERS[k / 10] + '</span>';
+      if (storm) html += '<span class="tag" style="top:' + (y - 15) + 'px;' + (left ? 'right:8px' : 'left:8px') + ';--tilt:' + (k % 20 ? 3 : -3) + 'deg">Storm</span>';
       else if (k % 2) { const wx = Math.round(left ? x + w * 0.4 : x - w * 0.4); doodles += '<path d="M' + (wx - 16) + ' ' + (y + 4) + 'q5.5-8 11 0t11 0t11 0"/>'; }
-      html += '<button data-lv="' + L.n + '" style="left:' + x + 'px;top:' + y + 'px;--tilt:' + ((k * 37) % 9 - 4) + 'deg"' + (unlocked(L.n) ? '' : ' disabled') + (next && next.n === L.n ? ' class="next"' : '') + '>' + L.n + '</button>';
+      const cls = (next && next.n === L.n ? 'next' : '') + (storm ? ' storm' : '');
+      html += '<button data-lv="' + L.n + '" style="left:' + x + 'px;top:' + y + 'px;--tilt:' + ((k * 37) % 9 - 4) + 'deg' + (L.n > 999 ? ';font-size:1.05rem' : '') + '"' + (unlocked(L.n) ? '' : ' disabled') + (cls.trim() ? ' class="' + cls.trim() + '"' : '') + '>' + L.n + '</button>';
       if (P.stars[L.n]) html += '<span class="st" style="left:' + x + 'px;top:' + (y + 32) + 'px">' + starRow(P.stars[L.n], 3) + '</span>';
     });
     box.style.height = h + 'px';
     box.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '"><path class="rt" d="' + d + '"/><g class="dd">' + doodles + '</g></svg>' + html;
-    box.parentElement.scrollTop = pt((next || LEVELS[LEVELS.length - 1]).n - 1)[1] - 230;
+    $('seaName').innerHTML = TIERS[mapSea] + '<span>Sea ' + (mapSea + 1) + ' of ' + seas + ' · levels ' + (first + 1) + '–' + (first + PER_SEA) + '</span>';
+    $('seaPrev').disabled = mapSea === 0;
+    $('seaNext').disabled = mapSea === seas - 1 || !unlocked(first + PER_SEA + 1);
+    const here = next && Math.floor((next.n - 1) / PER_SEA) === mapSea ? next.n - 1 - first : 0;
+    box.parentElement.scrollTop = pt(here)[1] - 230;
   }
 
   function show(id) {
@@ -496,13 +524,13 @@
     if (id === 'menu') {
       const next = LEVELS.find(L => !P.stars[L.n]);
       $('mCoins').textContent = P.coins;
-      $('mVoyageSub').innerHTML = (next ? 'Level ' + next.n + ' · ' + TIERS[Math.floor((next.n - 1) / 10)] : 'Every level cleared') + ' · ' + STAR(true) + ' ' + totalStars();
+      $('mVoyageSub').innerHTML = (next ? 'Level ' + next.n + ' · ' + TIERS[Math.floor((next.n - 1) / PER_SEA)] : 'Every level cleared') + ' · ' + STAR(true) + ' ' + totalStars();
       $('mEndlessSub').textContent = P.best ? 'Best so far: ' + P.best : 'How long can you hold back the sea?';
       const played = P.lastDaily === today();
       $('mDailySub').textContent = played ? 'Today: ' + P.daily.best + ' · ' + P.streak + (P.streak === 1 ? ' day' : ' days') + ' running' : 'One board a day, 50 coins for showing up';
       $('mShopSub').textContent = P.owned.length + ' of ' + Object.keys(THEMES).length + ' colour sets';
     }
-    if (id === 'map') { $('mapStars').innerHTML = STAR(true) + ' ' + totalStars(); buildMap(); }
+    if (id === 'map') { $('mapStars').innerHTML = STAR(true) + ' ' + totalStars(); const nx = LEVELS.find(L => !P.stars[L.n]) || LEVELS[LEVELS.length - 1]; mapSea = Math.floor((nx.n - 1) / PER_SEA); buildMap(); }
     if (id === 'shop') {
       $('sCoins').textContent = P.coins;
       $('themes').innerHTML = Object.entries(THEMES).map(([k, t], i) => {
@@ -519,7 +547,7 @@
 
   function preLevel(n) {
     const L = LEVELS[n - 1];
-    modal('Level ' + n, '<p>' + TIERS[Math.floor((n - 1) / 10)] + '</p><div class="big" style="font-size:1.6rem">' + goalText(L) + '</div><p>The tide comes up every ' + L.interval + ' moves' + (L.tide ? ', and it is already ' + L.tide + (L.tide === 1 ? ' row' : ' rows') + ' in' : '') + '.</p>' + (GOAL_TIP[L.type] ? '<p>' + GOAL_TIP[L.type] + '</p>' : '') + '<p>Finish with the water low for three stars.</p>', [{ t: 'Cast off', primary: true, fn: () => startRun('voyage', n) }, { t: 'Back', fn: () => show('map') }]);
+    modal('Level ' + n, '<p>' + TIERS[Math.floor((n - 1) / PER_SEA)] + '</p><div class="big" style="font-size:1.6rem">' + goalText(L) + '</div><p>The tide comes up every ' + L.interval + ' moves' + (L.tide ? ', and it is already ' + L.tide + (L.tide === 1 ? ' row' : ' rows') + ' in' : '') + '.</p>' + (L.limit ? '<p>You have <b>' + L.limit + ' moves</b>.</p>' : '') + [L.type, L.iron ? 'iron' : '', L.surge > 1 ? 'storm' : ''].map(t => GOAL_TIP[t] ? '<p>' + GOAL_TIP[t] + '</p>' : '').join('') + '<p>Finish with the water low for three stars.</p>', [{ t: 'Cast off', primary: true, fn: () => startRun('voyage', n) }, { t: 'Back', fn: () => show('map') }]);
   }
 
   function applyTheme() {
@@ -559,7 +587,7 @@
     $('score').textContent = S.score;
     if (S.goal) { $('goalLabel').textContent = S.goal.type === 'score' ? 'Target' : S.goal.type; $('goal').textContent = (S.goal.type === 'score' ? '' : Math.min(progress(), S.goal.target) + '/') + S.goal.target; }
     else { $('goalLabel').textContent = S.mode === 'daily' ? 'Today' : 'Best'; $('goal').textContent = S.mode === 'daily' ? (P.daily.date === today() ? P.daily.best : 0) : P.best; }
-    $('gTitle').textContent = S.mode === 'voyage' ? 'Level ' + S.lv : S.mode === 'daily' ? 'Daily tide' : 'Endless';
+    $('gTitle').innerHTML = S.mode === 'voyage' ? 'Level ' + S.lv + (S.limit ? ' <span class="left' + (S.limit - S.moves <= 3 ? ' low' : '') + '">' + Math.max(0, S.limit - S.moves) + ' left</span>' : '') : S.mode === 'daily' ? 'Daily tide' : 'Endless';
     const left = Math.max(0, S.movesToRise);
     $('tideLabel').textContent = left === 1 ? 'Tide next move!' : 'Tide in ' + left + ' moves';
     $('pips').innerHTML = Array.from({ length: S.interval }, (_, i) => '<i class="' + (i < left ? 'on' : '') + '"></i>').join('');
@@ -624,7 +652,7 @@
     ctx.closePath();
   }
   const hash = n => { const x = Math.sin(n * 127.1 + 11.7) * 43758.5453; return x - Math.floor(x); };
-  const colorOf = v => (v & 15) === STONE ? TH.stone : TH.blocks[(v & 15) - 1] || TH.stone;
+  const colorOf = v => (v & 15) === STONE || (v & 15) === IRON ? TH.stone : TH.blocks[(v & 15) - 1] || TH.stone;
 
   // A slightly wonky rounded square, the same wonk every frame for a given seed.
   function wonky(x, y, s, seed, amt, rad) {
@@ -639,11 +667,18 @@
     seed = seed || 1;
     ctx.globalAlpha = alpha == null ? 1 : alpha;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    const ink = Math.max(1.4, s * 0.055), stone = (v & 15) === STONE;
+    const ink = Math.max(1.4, s * 0.055), iron = (v & 15) === IRON, stone = iron || (v & 15) === STONE;
     wonky(x, y, s, seed, stone ? 0.17 : 0.08, s * (stone ? 0.3 : 0.2));
     ctx.fillStyle = colorOf(v); ctx.fill();
     ctx.lineWidth = ink; ctx.strokeStyle = TH.ink; ctx.stroke();
-    if (stone) {
+    if (iron) {
+      // iron straps and rivets
+      ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fill();
+      ctx.strokeStyle = TH.ink; ctx.lineWidth = s * 0.1;
+      ctx.beginPath(); ctx.moveTo(x + s * 0.14, y + s * 0.36); ctx.lineTo(x + s * 0.86, y + s * 0.33); ctx.moveTo(x + s * 0.14, y + s * 0.66); ctx.lineTo(x + s * 0.86, y + s * 0.68); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      [[0.27, 0.355], [0.72, 0.335], [0.3, 0.665], [0.7, 0.675]].forEach(q => { ctx.beginPath(); ctx.arc(x + s * q[0], y + s * q[1], s * 0.032, 0, 7); ctx.fill(); });
+    } else if (stone) {
       // barnacles
       ctx.fillStyle = 'rgba(0,0,0,0.2)';
       for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(x + s * (0.28 + hash(seed + k * 3.1) * 0.44), y + s * (0.28 + hash(seed + k * 5.7) * 0.44), s * (0.04 + hash(seed + k) * 0.03), 0, 7); ctx.fill(); }
@@ -858,6 +893,8 @@
     if (!P.owned.includes(k)) { if (P.coins < t.cost) return toast('Not enough coins yet'); P.coins -= t.cost; P.owned.push(k); }
     P.theme = k; save(); applyTheme(); show('shop');
   };
+  $('seaPrev').onclick = () => { mapSea--; buildMap(); };
+  $('seaNext').onclick = () => { mapSea++; buildMap(); };
   $('hero').innerHTML = hero();
   $('logo').innerHTML = [...'Tidewater'].map((ch, i) => '<span style="transform:rotate(' + [-5, 3, -2, 4, -3, 2, -4, 3, -2][i] + 'deg) translateY(' + [0, 3, -2, 2, -1, 3, 0, -2, 2][i] + 'px)">' + ch + '</span>').join('');
   if (document.fonts && document.fonts.load) document.fonts.load('800 20px Grandstander');
@@ -870,7 +907,7 @@
   requestAnimationFrame(draw);
 
   // Hook for automated playtests.
-  window.__tw = { get S() { return S; }, P, CFG, N, LEVELS, place, canPlace, fullLines, startRun, dry, useBooster, show };
+  window.__tw = { get S() { return S; }, P, CFG, N, LEVELS, TUNE, place, canPlace, fullLines, startRun, dry, useBooster, show };
 })();
 </script>
 </body>
