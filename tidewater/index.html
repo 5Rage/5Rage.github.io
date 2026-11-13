@@ -6,119 +6,140 @@
 <title>Tidewater (prototype)</title>
 <meta name="description" content="Tidewater: a block puzzle where the tide keeps rising. Prototype.">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#0a1a2e">
+<meta name="theme-color" content="#f3e7cf">
 <style>
-  :root { --bg: #0a1a2e; --bg2: #12335a; --panel: #10294a; --line: #1f4470; --text: #f3ead7; --muted: #9db4cf; --accent: #ffd98a; --onaccent: #1a1405; --water: #38a3d6; }
+  @font-face { font-family: 'Grandstander'; src: url('fonts/grandstander.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+  :root { --font: 'Grandstander', 'Chalkboard SE', 'Comic Sans MS', system-ui, sans-serif; --paper: #f3e7cf; --card: #fff8e8; --ink: #27324a; --text: #27324a; --muted: #7a7466; --accent: #ef6f4a; --onaccent: #fff8e8; --water: #4fb0c6; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
-  body { margin: 0; background: radial-gradient(120% 80% at 50% 0%, var(--bg2) 0%, var(--bg) 60%) var(--bg); color: var(--text); font: 16px/1.4 system-ui, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
-  #app { height: 100%; max-width: 520px; margin: 0 auto; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  body { margin: 0; background: var(--paper); color: var(--text); font: 600 16px/1.35 var(--font); overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+  /* paper grain over everything, canvas included */
+  body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 20; opacity: 0.55; mix-blend-mode: multiply; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .42  0 0 0 0 .35  0 0 0 0 .24  0 0 0 .2 0'/></filter><rect width='240' height='240' filter='url(%23n)'/></svg>"); }
+  #app { height: 100%; max-width: 520px; margin: 0 auto; padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); }
   .screen { display: none; height: 100%; flex-direction: column; align-items: center; }
   .screen.show { display: flex; }
-  button { font: 600 0.82rem/1 system-ui, sans-serif; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; cursor: pointer; }
-  button:active { transform: translateY(1px); }
-  button:disabled { opacity: 0.4; cursor: default; }
-  button.primary { background: var(--accent); color: var(--onaccent); border-color: transparent; }
-  .coin { display: inline-block; width: 0.85em; height: 0.85em; border-radius: 50%; background: #ffcf4a; box-shadow: inset 0 0 0 2px #d99a16; vertical-align: -0.08em; margin-right: 0.35em; }
+
+  button { font: 700 0.95rem/1 var(--font); color: var(--text); background: var(--card); border: 2.5px solid var(--ink); border-radius: 14px 18px 13px 19px / 17px 13px 19px 14px; padding: 10px 14px; box-shadow: 3px 4px 0 var(--ink); cursor: pointer; transform: rotate(var(--tilt, 0deg)); transition: transform 0.06s, box-shadow 0.06s; }
+  button:active:not(:disabled) { transform: translate(2px, 3px) rotate(var(--tilt, 0deg)); box-shadow: 1px 1px 0 var(--ink); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.primary { background: var(--accent); color: var(--onaccent); }
+  svg.ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .ico { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; flex: none; }
+  .coin { display: inline-block; width: 0.9em; height: 0.9em; border-radius: 50%; background: #f7c843; border: 2px solid var(--ink); vertical-align: -0.1em; margin-right: 0.3em; }
+  .star { width: 1em; height: 1em; fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linejoin: round; vertical-align: -0.12em; }
+  .star.on { fill: #f7c843; }
+  .purse { font-weight: 800; font-size: 1.15rem; }
 
   /* menu */
-  #menu { justify-content: center; gap: 12px; overflow-y: auto; }
-  .logo { margin: 0; font-size: 2.5rem; letter-spacing: 0.1em; color: var(--accent); }
-  .sub { margin: -8px 0 6px; color: var(--muted); }
-  .purse { font-weight: 700; font-size: 1.1rem; margin-bottom: 6px; }
-  .mode { width: 100%; max-width: 360px; text-align: left; padding: 15px 18px; border-radius: 16px; }
-  .mode b { display: block; font-size: 1.15rem; margin-bottom: 5px; }
-  .mode span { color: var(--muted); font-weight: 500; }
-  .mode.primary span { color: var(--onaccent); opacity: 0.75; }
-  .link { background: none; border: 0; color: var(--muted); text-decoration: underline; }
+  #menu { justify-content: center; gap: 13px; overflow-y: auto; }
+  #hero { width: 100%; max-width: 330px; margin-bottom: 2px; }
+  #hero svg { display: block; width: 100%; }
+  .logo { margin: 0; font-size: clamp(2.7rem, 14vw, 3.7rem); font-weight: 900; line-height: 1; white-space: nowrap; }
+  .logo span { display: inline-block; text-shadow: 3px 3px 0 var(--accent); }
+  .sub { margin: -6px 0 0; color: var(--muted); font-weight: 500; }
+  .mode { width: 100%; max-width: 330px; text-align: left; padding: 13px 18px 11px; }
+  .mode b { display: block; font-size: 1.3rem; font-weight: 800; margin-bottom: 5px; }
+  .mode span { font-weight: 500; font-size: 0.9rem; opacity: 0.78; }
+  .link { background: none; border: 0; box-shadow: none; color: var(--muted); text-decoration: underline wavy; text-underline-offset: 4px; font-weight: 600; }
 
   /* sub screens */
-  .bar { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-  .bar h2 { margin: 0; font-size: 1.15rem; letter-spacing: 0.06em; color: var(--accent); flex: 1; text-align: center; }
-  .scroll { width: 100%; flex: 1; overflow-y: auto; padding-bottom: 12px; }
-  #levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-  #levels button { aspect-ratio: 1; padding: 0; font-size: 1.1rem; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
-  #levels small { font-size: 0.7rem; letter-spacing: 0.05em; color: var(--accent); }
-  #levels button.next { border-color: var(--accent); box-shadow: 0 0 14px rgba(255, 217, 138, 0.3); }
-  .theme { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
-  .theme .sw { display: grid; grid-template-columns: repeat(4, 14px); gap: 3px; padding: 8px; border-radius: 10px; }
-  .theme .sw i { width: 14px; height: 14px; border-radius: 4px; }
-  .theme .nm { flex: 1; font-weight: 700; }
-  .theme .nm span { display: block; font-weight: 500; font-size: 0.82rem; color: var(--muted); }
+  .bar { width: 100%; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .bar h2 { margin: 0; font-size: 1.3rem; font-weight: 800; flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .scroll { width: 100%; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 4px 4px 16px; }
+  #levels { position: relative; width: 100%; }
+  #levels svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #levels .rt { fill: none; stroke: var(--text); stroke-width: 3.5; stroke-dasharray: 1 11; stroke-linecap: round; opacity: 0.6; }
+  #levels .dd path { fill: none; stroke: var(--water); stroke-width: 3; stroke-linecap: round; }
+  #levels button { position: absolute; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; padding: 0; font-size: 1.3rem; font-weight: 800; }
+  #levels button.next { background: var(--accent); color: var(--onaccent); animation: bob 1.5s ease-in-out infinite; }
+  #levels .st { position: absolute; transform: translateX(-50%); white-space: nowrap; font-size: 0.95rem; }
+  #levels .tag { position: absolute; background: var(--text); color: var(--paper); padding: 5px 11px 3px; border-radius: 5px 8px 6px 9px; font-size: 0.85rem; transform: rotate(var(--tilt)); }
+  @keyframes bob { 50% { margin-top: -34px; } }
+  .theme { display: flex; align-items: center; gap: 12px; background: var(--card); border: 2.5px solid var(--ink); border-radius: 14px 18px 13px 19px / 17px 13px 19px 14px; box-shadow: 3px 4px 0 var(--ink); padding: 10px 12px; margin: 0 4px 14px 0; transform: rotate(var(--tilt)); }
+  .theme svg { width: 76px; height: 56px; flex: none; }
+  .theme .nm { flex: 1; font-weight: 800; font-size: 1.1rem; }
+  .theme .nm span { display: block; font-weight: 500; font-size: 0.85rem; color: var(--muted); }
 
   /* game */
-  .hud { width: 100%; display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 8px; margin: 0 0 8px; }
-  .stat, .tide { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 7px 6px; text-align: center; min-width: 0; }
-  .stat span, .tide span { display: block; font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .stat b { font-size: 1.3rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  #pips { display: flex; justify-content: center; gap: 6px; margin-top: 7px; height: 14px; }
-  #pips i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--water); }
+  .hud { width: 100%; display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin: 0 0 8px; padding: 0 4px; }
+  .stat { min-width: 76px; }
+  .stat.r { text-align: right; }
+  .stat span { display: block; font-size: 0.82rem; font-weight: 500; color: var(--muted); text-transform: capitalize; }
+  .stat b { font-size: 1.75rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tide { background: var(--card); border: 2.5px solid var(--ink); border-radius: 999px; box-shadow: 2px 3px 0 var(--ink); padding: 6px 16px 8px; text-align: center; transform: rotate(-1.2deg); }
+  .tide span { display: block; font-size: 0.82rem; white-space: nowrap; }
+  #pips { display: flex; justify-content: center; gap: 8px; margin-top: 6px; height: 14px; }
+  #pips i { width: 12px; height: 12px; border: 2px solid var(--ink); border-radius: 0 50% 50% 50%; transform: rotate(45deg); }
   #pips i.on { background: var(--water); }
-  .tide.warn { border-color: var(--water); box-shadow: 0 0 18px var(--water); }
+  .tide.warn { animation: wig 0.45s ease-in-out infinite; }
+  @keyframes wig { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(2deg); } }
   canvas { display: block; touch-action: none; }
-  .boost { width: 100%; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-top: 8px; }
-  .boost > * { height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0; }
-  .boost small { font-weight: 500; color: var(--muted); font-size: 0.7rem; }
-  .boost .purse { margin: 0; font-size: 1rem; flex-direction: row; }
+  .boost { width: 100%; display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 9px; align-items: center; margin-top: 6px; padding-right: 4px; }
+  .boost button { height: 46px; padding: 0 6px; display: flex; align-items: center; justify-content: center; gap: 6px; text-align: left; font-size: 0.85rem; }
+  .boost small { display: block; font-weight: 500; font-size: 0.75rem; margin-top: 3px; white-space: nowrap; }
+  .boost .purse { min-width: 62px; }
 
   /* modal + toast */
-  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(5, 10, 20, 0.78); padding: 20px; z-index: 5; }
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(30, 28, 40, 0.55); padding: 22px; z-index: 5; }
   .overlay.show { display: flex; }
-  .card { width: 100%; max-width: 360px; max-height: 92vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 18px; text-align: center; }
-  .card h2 { margin: 0 0 8px; color: var(--accent); font-size: 1.5rem; letter-spacing: 0.05em; }
-  .card p { margin: 0 0 10px; color: var(--muted); }
-  .card ul { text-align: left; margin: 0 0 14px; padding-left: 20px; }
-  .card li { margin: 6px 0; }
-  .card .big { font-size: 2.3rem; font-weight: 700; margin: 2px 0; font-variant-numeric: tabular-nums; }
-  .card .stars { font-size: 2rem; letter-spacing: 0.15em; color: var(--accent); margin: 2px 0 6px; }
-  .card .stars s { text-decoration: none; opacity: 0.25; }
-  #mBtns { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-  #mBtns button { font-size: 1rem; padding: 13px 20px; border-radius: 12px; }
-  #toast { position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%); background: var(--text); color: var(--bg); font-weight: 600; padding: 9px 16px; border-radius: 999px; opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 6; white-space: nowrap; }
+  .card { width: 100%; max-width: 350px; max-height: 92vh; overflow-y: auto; background: var(--card); border: 3px solid var(--ink); border-radius: 20px 26px 19px 27px / 25px 19px 27px 20px; box-shadow: 6px 7px 0 var(--ink); padding: 22px 22px 22px; text-align: center; transform: rotate(-0.7deg); }
+  .card h2 { margin: 0 0 8px; font-size: 1.7rem; font-weight: 900; }
+  .card p { margin: 0 0 10px; font-weight: 500; }
+  .card ul { text-align: left; margin: 0 0 12px; padding-left: 20px; font-weight: 500; }
+  .card li { margin: 7px 0; }
+  .card .big { font-size: 2.5rem; font-weight: 900; line-height: 1.1; margin: 2px 0 4px; }
+  .card .stars { font-size: 2.6rem; margin: 0 0 4px; }
+  .card .stars .star:nth-child(2) { transform: translateY(-7px) rotate(4deg); }
+  .card .stars .star:nth-child(1) { transform: rotate(-9deg); }
+  .card .stars .star:nth-child(3) { transform: rotate(9deg); }
+  #mBtns { display: flex; flex-direction: column; gap: 11px; margin-top: 14px; padding-right: 4px; }
+  #mBtns button { font-size: 1.05rem; padding: 14px 20px 12px; }
+  #toast { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%) rotate(-2deg); background: var(--text); color: var(--paper); padding: 9px 16px 7px; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 6; white-space: nowrap; }
   #toast.show { opacity: 1; }
 </style>
 </head>
 <body>
 <div id="app">
   <section class="screen show" id="menu">
-    <h1 class="logo">TIDEWATER</h1>
-    <p class="sub">The sea keeps coming in.</p>
+    <div id="hero"></div>
+    <h1 class="logo" id="logo" aria-label="Tidewater"></h1>
+    <p class="sub">A block puzzle with wet feet.</p>
     <div class="purse"><i class="coin"></i><span id="mCoins">0</span></div>
-    <button class="mode primary" id="mVoyage"><b>Voyage</b><span id="mVoyageSub"></span></button>
-    <button class="mode" id="mEndless"><b>Endless</b><span id="mEndlessSub"></span></button>
-    <button class="mode" id="mDaily"><b>Daily tide</b><span id="mDailySub"></span></button>
-    <button class="mode" id="mShop"><b>Themes</b><span id="mShopSub"></span></button>
-    <button class="link" id="mHelp">How to play</button>
+    <button class="mode primary" id="mVoyage" style="--tilt:-0.8deg"><b>Voyage</b><span id="mVoyageSub"></span></button>
+    <button class="mode" id="mEndless" style="--tilt:0.6deg"><b>Endless</b><span id="mEndlessSub"></span></button>
+    <button class="mode" id="mDaily" style="--tilt:-0.4deg"><b>Daily tide</b><span id="mDailySub"></span></button>
+    <button class="mode" id="mShop" style="--tilt:0.7deg"><b>Paint box</b><span id="mShopSub"></span></button>
+    <button class="link" id="mHelp">How do I play?</button>
   </section>
 
   <section class="screen" id="map">
-    <div class="bar"><button data-go="menu">Back</button><h2>VOYAGE</h2><span id="mapStars"></span></div>
+    <div class="bar"><button class="ico" data-go="menu" aria-label="Back"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><h2>The voyage</h2><span class="purse" id="mapStars"></span></div>
     <div class="scroll"><div id="levels"></div></div>
   </section>
 
   <section class="screen" id="shop">
-    <div class="bar"><button data-go="menu">Back</button><h2>THEMES</h2><span class="purse" style="margin:0"><i class="coin"></i><span id="sCoins">0</span></span></div>
+    <div class="bar"><button class="ico" data-go="menu" aria-label="Back"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><h2>Paint box</h2><span class="purse"><i class="coin"></i><span id="sCoins">0</span></span></div>
     <div class="scroll" id="themes"></div>
   </section>
 
   <section class="screen" id="game">
     <div class="bar">
-      <button id="gMenu">Menu</button>
-      <h2 id="gTitle">ENDLESS</h2>
-      <button id="soundBtn">Sound on</button>
-      <button id="restartBtn">Restart</button>
+      <button class="ico" id="gMenu" aria-label="Menu"><svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h2 id="gTitle">Endless</h2>
+      <button class="ico" id="soundBtn" aria-label="Sound"></button>
+      <button class="ico" id="restartBtn" aria-label="Restart" style="margin-right:4px"><svg class="ic" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.6-5.7"/><path d="M4 4v5h5"/></svg></button>
     </div>
     <div class="hud">
       <div class="stat"><span>Score</span><b id="score">0</b></div>
       <div class="tide" id="tideBox"><span id="tideLabel">Tide in</span><div id="pips"></div></div>
-      <div class="stat"><span id="goalLabel">Best</span><b id="goal">0</b></div>
+      <div class="stat r"><span id="goalLabel">Best</span><b id="goal">0</b></div>
     </div>
     <canvas id="c"></canvas>
     <div class="boost">
       <div class="purse"><i class="coin"></i><span id="gCoins">0</span></div>
-      <button id="bUndo">Undo<small id="cUndo"></small></button>
-      <button id="bReroll">New pieces<small id="cReroll"></small></button>
-      <button id="bEbb">Ebb tide<small id="cEbb"></small></button>
+      <button id="bUndo" style="--tilt:-0.8deg"><svg class="ic" viewBox="0 0 24 24"><path d="M9 5L5 9l4 4"/><path d="M5 9h9a5 5 0 0 1 0 10H9"/></svg><div>Undo<small><i class="coin"></i><span id="cUndo"></span></small></div></button>
+      <button id="bReroll" style="--tilt:0.6deg"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h.01M15 15h.01M12 12h.01"/></svg><div>Swap<small><i class="coin"></i><span id="cReroll"></span></small></div></button>
+      <button id="bEbb" style="--tilt:-0.5deg"><svg class="ic" viewBox="0 0 24 24"><path d="M3 19c2-2.4 4-2.4 6 0s4 2.4 6 0 4-2.4 6 0"/><path d="M12 3v9M8 8.5l4 4 4-4"/></svg><div>Ebb<small><i class="coin"></i><span id="cEbb"></span></small></div></button>
     </div>
   </section>
 </div>
@@ -142,12 +163,12 @@
   const COST = { undo: 25, reroll: 40, ebb: 60, revive: 100 };
 
   const THEMES = {
-    harbor: { name: 'Harbor', cost: 0, bg: '#0a1a2e', bg2: '#12335a', panel: '#10294a', line: '#1f4470', text: '#f3ead7', muted: '#9db4cf', accent: '#ffd98a', onaccent: '#1a1405', board: '#0c2038', cell: '#15345a', w1: '72,180,226', w2: '16,78,134', stone: '#8192a8', blocks: ['#f4a259', '#f25f5c', '#ffe066', '#b8e07a', '#b388eb', '#f7b2bd', '#f3ead7'] },
-    sunset: { name: 'Sunset', cost: 300, bg: '#241024', bg2: '#5a2440', panel: '#3a1a36', line: '#6b3358', text: '#ffeede', muted: '#d3a9b8', accent: '#ffb86b', onaccent: '#2a1005', board: '#1f0d1c', cell: '#41203b', w1: '250,140,150', w2: '120,50,110', stone: '#9a8494', blocks: ['#ffd166', '#ef476f', '#f78c6b', '#06d6a0', '#9d8df1', '#ffc8dd', '#fff1d0'] },
-    reef: { name: 'Reef', cost: 600, bg: '#052226', bg2: '#0b4a4f', panel: '#0b3338', line: '#17595f', text: '#eafff6', muted: '#93c9c0', accent: '#7df9c4', onaccent: '#03241c', board: '#051c20', cell: '#0e3d43', w1: '64,224,208', w2: '10,110,120', stone: '#7f9c9a', blocks: ['#ff9f1c', '#ff5d8f', '#f9f871', '#9bf6a2', '#c77dff', '#ffb3c6', '#ffffff'] },
-    chart: { name: 'Sea chart', cost: 1000, bg: '#e9dfc9', bg2: '#f8f2e4', panel: '#e0d4ba', line: '#c2b28f', text: '#2b2a33', muted: '#6b6558', accent: '#1f3a5f', onaccent: '#ffffff', board: '#cfc2a5', cell: '#e6dcc4', w1: '80,135,185', w2: '30,65,115', stone: '#8f8a7e', blocks: ['#d1603d', '#3d5a80', '#e0a526', '#5b8c5a', '#7d5ba6', '#c9728a', '#4a4a55'] },
+    postcard: { name: 'Postcard', cost: 0, paper: '#f3e7cf', card: '#fff8e8', ink: '#27324a', text: '#27324a', muted: '#7a7466', accent: '#ef6f4a', onaccent: '#fff8e8', board: '#fbf1da', grid: '39,50,74', w: ['#9ed6d8', '#58b4c8', '#2f86a8'], stone: '#aaa89c', blocks: ['#ef6f4a', '#f2b134', '#6fb98f', '#6672c9', '#b07cc6', '#f29fb0', '#ead9a8'] },
+    dusk: { name: 'Lantern dusk', cost: 300, paper: '#221d38', card: '#322a52', ink: '#0e0b1b', text: '#f6e9d2', muted: '#b0a7cc', accent: '#f2b134', onaccent: '#221d38', board: '#3a3160', grid: '246,233,210', w: ['#8377d6', '#5d51b4', '#3e358c'], stone: '#7c7596', blocks: ['#ff8a5c', '#ffd166', '#7fd8a6', '#6ec3f0', '#d59cf0', '#ff9fbd', '#f6e9d2'] },
+    reef: { name: 'Shallow reef', cost: 600, paper: '#d6eee3', card: '#f4fbf6', ink: '#12403f', text: '#12403f', muted: '#5a827c', accent: '#ff7f6a', onaccent: '#fffaf2', board: '#ecf8f1', grid: '18,64,63', w: ['#8fe0cf', '#45c2b1', '#1f9790'], stone: '#a2b5ad', blocks: ['#ff7f6a', '#ffc94a', '#8fd36f', '#5aa0e6', '#c58be0', '#ff9ec4', '#f2e6c4'] },
+    riso: { name: 'Two-ink print', cost: 1000, paper: '#f6efe4', card: '#fffdf8', ink: '#2b2b8f', text: '#2b2b8f', muted: '#7d7db6', accent: '#ff5b7f', onaccent: '#fffdf8', board: '#fffaf0', grid: '43,43,143', w: ['#ffc2cf', '#ff8ea8', '#ff5b7f'], stone: '#bcb9da', blocks: ['#ff5b7f', '#4a4ac0', '#ffb3c4', '#7b7bdc', '#ff8aa5', '#a6a6ee', '#ffe0e6'] },
   };
-  let TH = THEMES.harbor;
+  let TH = THEMES.postcard;
 
   // [weight, rows]
   const SHAPES = [
@@ -183,7 +204,7 @@
   const goalText = L => L.type === 'score' ? 'Score ' + L.target + ' points' : L.type === 'lines' ? 'Clear ' + L.target + ' lines' : 'Collect ' + L.target + ' pearls';
 
   // ---------- Profile (saved) ----------
-  const P = { coins: 100, best: 0, stars: {}, theme: 'harbor', owned: ['harbor'], muted: false, daily: { date: '', best: 0 }, streak: 0, lastDaily: '', seenHelp: false };
+  const P = { coins: 100, best: 0, stars: {}, theme: 'postcard', owned: ['postcard'], muted: false, daily: { date: '', best: 0 }, streak: 0, lastDaily: '', seenHelp: false };
   try {
     const raw = localStorage.getItem('tidewater.save.v1');
     if (raw) Object.assign(P, JSON.parse(raw));
@@ -370,7 +391,7 @@
 
   function showLoss(earned, extra) {
     const btns = [];
-    if (!S.revived) btns.push({ t: 'Keep going  (' + COST.revive + ' coins)', primary: P.coins >= COST.revive, disabled: P.coins < COST.revive, fn: revive });
+    if (!S.revived) btns.push({ t: 'Bail out and keep going (' + COST.revive + ')', primary: P.coins >= COST.revive, disabled: P.coins < COST.revive, fn: revive });
     let body = '<p>' + S.why + '</p>';
     if (S.mode === 'voyage') {
       body += '<p>' + goalText(LEVELS[S.lv - 1]) + ': ' + progress() + ' / ' + S.goal.target + '</p>';
@@ -380,7 +401,7 @@
       body += '<div class="big">' + S.score + '</div><p>' + (S.score >= bestNow && S.score > 0 ? 'New best!' : 'Best: ' + bestNow) + (earned ? ' &middot; <i class="coin"></i>+' + earned : '') + '</p>' + extra;
       btns.push({ t: 'Play again', primary: S.revived || P.coins < COST.revive, fn: () => startRun(S.mode) }, { t: 'Menu', fn: () => show('menu') });
     }
-    modal(S.tide >= N ? 'High tide' : 'No room left', body, btns);
+    modal('Swamped!', body, btns);
   }
 
   function revive() {
@@ -408,7 +429,7 @@
       const btns = [];
       if (L.n < LEVELS.length) btns.push({ t: 'Next level', primary: true, fn: () => preLevel(L.n + 1) });
       btns.push({ t: 'Play again', fn: () => startRun('voyage', L.n) }, { t: 'Level map', primary: L.n === LEVELS.length, fn: () => show('map') });
-      modal('Level ' + L.n + ' clear', '<div class="stars">' + '★'.repeat(stars) + '<s>' + '★'.repeat(3 - stars) + '</s></div><p>' + (stars === 3 ? 'The tide is out. Perfect.' : 'Finish with the tide lower for more stars.') + '</p><p><i class="coin"></i>+' + coins + (first ? ' (first clear bonus)' : '') + '</p>', btns);
+      modal('Level ' + L.n + ' clear', '<div class="stars">' + starRow(stars, 3) + '</div><p>' + (stars === 3 ? 'Tide right out. Lovely work.' : 'Finish with the tide lower for more stars.') + '</p><p><i class="coin"></i>+' + coins + (first ? ' (first clear bonus)' : '') + '</p>', btns);
     }, 750);
   }
 
@@ -422,27 +443,67 @@
   }
 
   // ---------- Screens ----------
+  const TIERS = ['Still Harbour', 'Pebble Cove', 'Gull Rocks', 'The Narrows', 'Foggy Reach', "Wreckers' Bar", 'Storm Sound', 'The Maw'];
+  const STAR = on => '<svg class="star' + (on ? ' on' : '') + '" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.3 6.8.8-5 4.7 1.3 6.8-6-3.4-6.1 3.4 1.4-6.8-5-4.7 6.8-.8z"/></svg>';
+  const starRow = (n, total) => Array.from({ length: total }, (_, i) => STAR(i < n)).join('');
+  const scallops = (x0, x1, y, w, amp) => { let d = 'M' + x0 + ' ' + y; for (let x = x0; x < x1; x += w) d += 'q' + w / 2 + ' ' + amp + ' ' + w + ' 0'; return d; };
+
+  function hero() {
+    const s = ' stroke="var(--ink)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"';
+    return '<svg viewBox="0 0 320 132">' +
+      '<circle cx="252" cy="40" r="23" fill="var(--c2)"' + s + '/>' +
+      '<path d="M150 34q6-8 12 0q6-8 12 0M196 54q5-6 10 0q5-6 10 0" fill="none"' + s + '/>' +
+      '<path d="M16 122q8-24 34-17q22-11 42 2q18 1 24 15z" fill="var(--stone)"' + s + '/>' +
+      '<path d="M53 106l6-66h19l7 66z" fill="var(--card)"' + s + '/>' +
+      '<path d="M56.5 68h25.4l1.8 17H55z" fill="var(--c1)"' + s + '/>' +
+      '<rect x="54" y="27" width="29" height="13" rx="2" fill="var(--c2)"' + s + '/>' +
+      '<path d="M51 27l17-13 18 13z" fill="var(--c1)"' + s + '/>' +
+      '<path d="' + scallops(-12, 332, 100, 26, 10) + 'V140H-12z" fill="var(--w1)"' + s + '/>' +
+      '<g transform="translate(206 97) rotate(-6)"><path d="M-23 0h46l-9 14h-28z" fill="var(--card)"' + s + '/><path d="M1-4v-28l19 23z" fill="var(--c1)"' + s + '/><path d="M-4-5v-21l-13 18z" fill="var(--card)"' + s + '/></g>' +
+      '<path d="' + scallops(-25, 332, 111, 26, 10) + 'V140H-25z" fill="var(--w2)"' + s + '/>' +
+      '<path d="' + scallops(-6, 332, 122, 26, 10) + 'V140H-6z" fill="var(--w3)"' + s + '/></svg>';
+  }
+
+  function buildMap() {
+    const box = $('levels'), w = box.clientWidth || 340, GAP = 80;
+    const pt = k => [Math.round(w / 2 + Math.sin(k * 0.95 + 0.4) * w * 0.29), 50 + k * GAP];
+    const h = 50 + LEVELS.length * GAP + 10, next = LEVELS.find(L => !P.stars[L.n]);
+    let d = '', html = '', doodles = '';
+    LEVELS.forEach((L, k) => {
+      const [x, y] = pt(k), left = x < w / 2;
+      if (k === 0) d = 'M' + x + ' ' + y;
+      else { const [px, py] = pt(k - 1); d += 'C' + px + ' ' + (py + GAP * 0.55) + ' ' + x + ' ' + (y - GAP * 0.55) + ' ' + x + ' ' + y; }
+      if (k % 5 === 0) html += '<span class="tag" style="top:' + (y - 15) + 'px;' + (left ? 'right:8px' : 'left:8px') + ';--tilt:' + (k % 10 ? 3 : -3) + 'deg">' + TIERS[k / 5] + '</span>';
+      else if (k % 2) { const wx = Math.round(left ? x + w * 0.4 : x - w * 0.4); doodles += '<path d="M' + (wx - 16) + ' ' + (y + 4) + 'q5.5-8 11 0t11 0t11 0"/>'; }
+      html += '<button data-lv="' + L.n + '" style="left:' + x + 'px;top:' + y + 'px;--tilt:' + ((k * 37) % 9 - 4) + 'deg"' + (unlocked(L.n) ? '' : ' disabled') + (next && next.n === L.n ? ' class="next"' : '') + '>' + L.n + '</button>';
+      if (P.stars[L.n]) html += '<span class="st" style="left:' + x + 'px;top:' + (y + 32) + 'px">' + starRow(P.stars[L.n], 3) + '</span>';
+    });
+    box.style.height = h + 'px';
+    box.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '"><path class="rt" d="' + d + '"/><g class="dd">' + doodles + '</g></svg>' + html;
+    box.parentElement.scrollTop = pt((next || LEVELS[LEVELS.length - 1]).n - 1)[1] - 230;
+  }
+
   function show(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('show', s.id === id));
     if (id === 'menu') {
       const next = LEVELS.find(L => !P.stars[L.n]);
       $('mCoins').textContent = P.coins;
-      $('mVoyageSub').textContent = (next ? 'Level ' + next.n + ' of ' + LEVELS.length : 'All levels clear') + ' · ★ ' + totalStars() + '/' + LEVELS.length * 3;
-      $('mEndlessSub').textContent = P.best ? 'Best ' + P.best : 'How long can you hold back the sea?';
+      $('mVoyageSub').innerHTML = (next ? 'Level ' + next.n + ' · ' + TIERS[Math.floor((next.n - 1) / 5)] : 'Every level cleared') + ' · ' + STAR(true) + ' ' + totalStars();
+      $('mEndlessSub').textContent = P.best ? 'Best so far: ' + P.best : 'How long can you hold back the sea?';
       const played = P.lastDaily === today();
-      $('mDailySub').textContent = played ? 'Today ' + P.daily.best + ' · Streak ' + P.streak + (P.streak === 1 ? ' day' : ' days') : 'Same board for everyone today · +50 coins';
-      $('mShopSub').textContent = P.owned.length + ' of ' + Object.keys(THEMES).length + ' unlocked';
+      $('mDailySub').textContent = played ? 'Today: ' + P.daily.best + ' · ' + P.streak + (P.streak === 1 ? ' day' : ' days') + ' running' : 'One board a day, 50 coins for showing up';
+      $('mShopSub').textContent = P.owned.length + ' of ' + Object.keys(THEMES).length + ' colour sets';
     }
-    if (id === 'map') {
-      $('mapStars').textContent = '★ ' + totalStars() + '/' + LEVELS.length * 3;
-      const next = LEVELS.find(L => !P.stars[L.n]);
-      $('levels').innerHTML = LEVELS.map(L => '<button data-lv="' + L.n + '"' + (unlocked(L.n) ? '' : ' disabled') + (next && next.n === L.n ? ' class="next"' : '') + '>' + L.n + '<small>' + (P.stars[L.n] ? '★'.repeat(P.stars[L.n]) : unlocked(L.n) ? '&nbsp;' : 'locked') + '</small></button>').join('');
-    }
+    if (id === 'map') { $('mapStars').innerHTML = STAR(true) + ' ' + totalStars(); buildMap(); }
     if (id === 'shop') {
       $('sCoins').textContent = P.coins;
-      $('themes').innerHTML = Object.entries(THEMES).map(([k, t]) => {
-        const own = P.owned.includes(k), on = P.theme === k;
-        return '<div class="theme"><div class="sw" style="background:' + t.board + '">' + t.blocks.concat('rgb(' + t.w1 + ')').map(b => '<i style="background:' + b + '"></i>').join('') + '</div><div class="nm">' + t.name + '<span>' + (on ? 'In use' : own ? 'Owned' : t.cost + ' coins') + '</span></div><button data-theme="' + k + '"' + (on ? ' disabled' : '') + (own || P.coins >= t.cost ? ' class="primary"' : '') + '>' + (on ? 'In use' : own ? 'Use' : 'Buy') + '</button></div>';
+      $('themes').innerHTML = Object.entries(THEMES).map(([k, t], i) => {
+        const own = P.owned.includes(k), on = P.theme === k, st = ' stroke="' + t.ink + '" stroke-width="2.5" stroke-linejoin="round"';
+        return '<div class="theme" style="--tilt:' + (i % 2 ? 0.6 : -0.6) + 'deg"><svg viewBox="0 0 76 56"><rect x="2" y="2" width="72" height="52" rx="8" fill="' + t.board + '"' + st + '/>' +
+          t.blocks.slice(0, 4).map((b, j) => '<rect x="' + (9 + j * 15) + '" y="' + (j % 2 ? 10 : 14) + '" width="13" height="13" rx="3" fill="' + b + '"' + st + '/>').join('') +
+          '<path d="' + scallops(2, 74, 36, 12, 6) + 'V46a8 8 0 0 1-8 8H10a8 8 0 0 1-8-8z" fill="' + t.w[1] + '"' + st + '/></svg>' +
+          '<div class="nm">' + t.name + '<span>' + (on ? 'On the board now' : own ? 'Yours' : '<i class="coin"></i>' + t.cost) + '</span></div>' +
+          '<button data-theme="' + k + '"' + (on ? ' disabled' : '') + (!on && (own || P.coins >= t.cost) ? ' class="primary"' : '') + '>' + (on ? 'In use' : own ? 'Use' : 'Buy') + '</button></div>';
       }).join('');
     }
     if (id === 'game') layout();
@@ -450,24 +511,30 @@
 
   function preLevel(n) {
     const L = LEVELS[n - 1];
-    modal('Level ' + n, '<div class="big" style="font-size:1.5rem">' + goalText(L) + '</div><p>Tide rises every ' + L.interval + ' moves' + (L.tide ? ' and starts ' + L.tide + (L.tide === 1 ? ' row' : ' rows') + ' up' : '') + '.</p>' + (L.type === 'pearls' ? '<p>Clear the line a pearl sits in to collect it.</p>' : '') + '<p>Finish with the tide low for three stars.</p>', [{ t: 'Play', primary: true, fn: () => startRun('voyage', n) }, { t: 'Back', fn: () => show('map') }]);
+    modal('Level ' + n, '<p>' + TIERS[Math.floor((n - 1) / 5)] + '</p><div class="big" style="font-size:1.6rem">' + goalText(L) + '</div><p>The tide comes up every ' + L.interval + ' moves' + (L.tide ? ', and it is already ' + L.tide + (L.tide === 1 ? ' row' : ' rows') + ' in' : '') + '.</p>' + (L.type === 'pearls' ? '<p>Clear the line a pearl sits in to pocket it.</p>' : '') + '<p>Finish with the water low for three stars.</p>', [{ t: 'Cast off', primary: true, fn: () => startRun('voyage', n) }, { t: 'Back', fn: () => show('map') }]);
   }
 
   function applyTheme() {
-    TH = THEMES[P.theme] || THEMES.harbor;
+    P.owned = P.owned.filter(k => THEMES[k]);
+    if (!P.owned.includes('postcard')) P.owned.unshift('postcard');
+    if (!THEMES[P.theme]) P.theme = 'postcard';
+    TH = THEMES[P.theme];
     const st = document.documentElement.style;
-    ['bg', 'bg2', 'panel', 'line', 'text', 'muted', 'accent', 'onaccent'].forEach(k => st.setProperty('--' + k, TH[k]));
-    st.setProperty('--water', 'rgb(' + TH.w1 + ')');
-    document.querySelector('meta[name=theme-color]').content = TH.bg;
+    ['paper', 'card', 'ink', 'text', 'muted', 'accent', 'onaccent', 'stone'].forEach(k => st.setProperty('--' + k, TH[k]));
+    TH.blocks.forEach((b, i) => st.setProperty('--c' + (i + 1), b));
+    TH.w.forEach((b, i) => st.setProperty('--w' + (i + 1), b));
+    st.setProperty('--water', TH.w[1]);
+    document.querySelector('meta[name=theme-color]').content = TH.paper;
   }
 
   const modalOpen = () => $('modal').classList.contains('show');
   function modal(title, html, btns) {
     $('mTitle').textContent = title; $('mBody').innerHTML = html;
     const box = $('mBtns'); box.innerHTML = '';
-    btns.forEach(b => {
+    btns.forEach((b, i) => {
       const e = document.createElement('button');
       e.textContent = b.t; if (b.primary) e.className = 'primary'; if (b.disabled) e.disabled = true;
+      e.style.setProperty('--tilt', (i % 2 ? 0.5 : -0.5) + 'deg');
       e.onclick = () => { $('modal').classList.remove('show'); if (b.fn) b.fn(); };
       box.appendChild(e);
     });
@@ -475,7 +542,7 @@
   }
   function help() {
     P.seenHelp = true; save();
-    modal('How to play', '<ul><li>Drag pieces onto the board. Fill a whole row or column to clear it.</li><li>Every few moves the tide rises one row. Blocks it covers turn to stone and are still there when the water drops.</li><li>Each line you clear pushes the tide back down.</li><li>Columns only need filling above the waterline, so high water is your chance to fight back.</li><li>The run ends when none of your pieces fit above the water.</li></ul>', [{ t: 'Got it', primary: true }]);
+    modal('How it works', '<ul><li>Drag pieces onto the board. Fill a whole row or column and it clears.</li><li>Every few moves the tide comes up a row. Anything it covers turns to stone, and is still sitting there when the water drops.</li><li>Each line you clear pushes the tide back out.</li><li>Columns only need filling above the waterline, so high water is your chance to fight back.</li><li>You are done when none of your pieces fit above the water.</li></ul>', [{ t: 'Got it', primary: true }]);
   }
   let toastT = 0;
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1400); }
@@ -484,9 +551,9 @@
     $('score').textContent = S.score;
     if (S.goal) { $('goalLabel').textContent = S.goal.type === 'score' ? 'Target' : S.goal.type; $('goal').textContent = (S.goal.type === 'score' ? '' : Math.min(progress(), S.goal.target) + '/') + S.goal.target; }
     else { $('goalLabel').textContent = S.mode === 'daily' ? 'Today' : 'Best'; $('goal').textContent = S.mode === 'daily' ? (P.daily.date === today() ? P.daily.best : 0) : P.best; }
-    $('gTitle').textContent = S.mode === 'voyage' ? 'LEVEL ' + S.lv : S.mode === 'daily' ? 'DAILY TIDE' : 'ENDLESS';
+    $('gTitle').textContent = S.mode === 'voyage' ? 'Level ' + S.lv : S.mode === 'daily' ? 'Daily tide' : 'Endless';
     const left = Math.max(0, S.movesToRise);
-    $('tideLabel').textContent = 'Tide in ' + left + (left === 1 ? ' move' : ' moves');
+    $('tideLabel').textContent = left === 1 ? 'Tide next move!' : 'Tide in ' + left + ' moves';
     $('pips').innerHTML = Array.from({ length: S.interval }, (_, i) => '<i class="' + (i < left ? 'on' : '') + '"></i>').join('');
     $('tideBox').classList.toggle('warn', left === 1 && !S.over);
     $('gCoins').textContent = P.coins;
@@ -523,19 +590,19 @@
 
   // ---------- Layout ----------
   const cv = $('c'), ctx = cv.getContext('2d');
-  let W = 0, H = 0, dpr = 1, cell = 0, bx = 0, by = 0, trayY = 0, trayH = 0;
-  const PAD = 8;
+  let W = 0, H = 0, dpr = 1, cell = 0, bx = 0, by = 0, trayY = 0, trayH = 0, SEA = 0;
+  const PAD = 10;
   function layout() {
     if (!$('game').classList.contains('show')) return;
     const used = cv.getBoundingClientRect().top;
-    const availH = window.innerHeight - used - 76, availW = Math.min(window.innerWidth - 24, 496);
+    const availH = window.innerHeight - used - 72, availW = Math.min(window.innerWidth - 24, 496);
     W = Math.max(200, Math.floor(Math.min(availW, availH / 1.4)));
     H = Math.floor(Math.min(Math.max(availH, W * 1.4), W * 1.55));
     dpr = Math.min(window.devicePixelRatio || 1, 3);
     cv.style.width = W + 'px'; cv.style.height = H + 'px';
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     cell = (W - PAD * 2) / N; bx = PAD; by = PAD;
-    trayY = by + cell * N + PAD * 2; trayH = H - trayY;
+    SEA = cell * 0.34; trayY = by + cell * N + SEA + PAD * 2; trayH = H - trayY;
   }
   window.addEventListener('resize', layout);
 
@@ -548,27 +615,65 @@
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
   }
+  const hash = n => { const x = Math.sin(n * 127.1 + 11.7) * 43758.5453; return x - Math.floor(x); };
   const colorOf = v => (v & 15) === STONE ? TH.stone : TH.blocks[(v & 15) - 1] || TH.stone;
-  function block(x, y, s, v, alpha) {
-    const g = Math.max(1, s * 0.04), a = alpha == null ? 1 : alpha;
-    ctx.globalAlpha = a;
-    ctx.fillStyle = colorOf(v); rr(x + g, y + g, s - g * 2, s - g * 2, s * 0.2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.3)'; rr(x + s * 0.16, y + s * 0.13, s * 0.68, s * 0.2, s * 0.1); ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,0.16)'; rr(x + s * 0.16, y + s * 0.74, s * 0.68, s * 0.13, s * 0.06); ctx.fill();
+
+  // A slightly wonky rounded square, the same wonk every frame for a given seed.
+  function wonky(x, y, s, seed, amt, rad) {
+    const j = k => (hash(seed * 7.3 + k) - 0.5) * s * amt, g = s * 0.07;
+    const p = [[x + g + j(1), y + g + j(2)], [x + s - g + j(3), y + g + j(4)], [x + s - g + j(5), y + s - g + j(6)], [x + g + j(7), y + s - g + j(8)]];
+    ctx.beginPath();
+    ctx.moveTo((p[0][0] + p[1][0]) / 2, (p[0][1] + p[1][1]) / 2);
+    for (let i = 1; i <= 4; i++) { const a = p[i % 4], b = p[(i + 1) % 4]; ctx.arcTo(a[0], a[1], b[0], b[1], rad); }
+    ctx.closePath();
+  }
+  function block(x, y, s, v, alpha, seed) {
+    seed = seed || 1;
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const ink = Math.max(1.4, s * 0.055), stone = (v & 15) === STONE;
+    wonky(x, y, s, seed, stone ? 0.17 : 0.08, s * (stone ? 0.3 : 0.2));
+    ctx.fillStyle = colorOf(v); ctx.fill();
+    ctx.lineWidth = ink; ctx.strokeStyle = TH.ink; ctx.stroke();
+    if (stone) {
+      // barnacles
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(x + s * (0.28 + hash(seed + k * 3.1) * 0.44), y + s * (0.28 + hash(seed + k * 5.7) * 0.44), s * (0.04 + hash(seed + k) * 0.03), 0, 7); ctx.fill(); }
+    } else {
+      // a brush of light, a brush of shade
+      ctx.lineWidth = s * 0.09;
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.moveTo(x + s * 0.27, y + s * 0.33); ctx.quadraticCurveTo(x + s * 0.29, y + s * 0.25, x + s * (0.44 + hash(seed) * 0.12), y + s * 0.26); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.13)'; ctx.beginPath(); ctx.moveTo(x + s * 0.75, y + s * 0.52); ctx.quadraticCurveTo(x + s * 0.76, y + s * 0.75, x + s * 0.52, y + s * 0.76); ctx.stroke();
+    }
     if (v & PEARL) {
-      ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s * 0.24, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(255,170,200,0.55)'; ctx.beginPath(); ctx.arc(x + s * 0.56, y + s * 0.56, s * 0.13, 0, 7); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + s * 0.43, y + s * 0.43, s * 0.07, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s * 0.25, 0, 7); ctx.fill();
+      ctx.lineWidth = ink; ctx.strokeStyle = TH.ink; ctx.stroke();
+      ctx.strokeStyle = 'rgba(240,140,170,0.7)'; ctx.lineWidth = s * 0.07; ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s * 0.15, 0.3, 1.9); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + s * 0.43, y + s * 0.42, s * 0.05, 0, 7); ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
-  function drawPiece(p, x, y, s, alpha) { for (const [r, c] of p.cells) block(x + c * s, y + r * s, s, p.color, alpha); }
-  function floater(text, r, c) { fx.floaters.push({ text, x: bx + (c + 0.5) * cell, y: by + (r + 0.5) * cell, t0: performance.now() }); }
+  function drawPiece(p, x, y, s, alpha, seed) { p.cells.forEach(([r, c], k) => block(x + c * s, y + r * s, s, p.color, alpha, (seed || 0) + p.color * 13 + k * 3 + 1)); }
+  function floater(text, r, c) { fx.floaters.push({ text, x: bx + (c + 0.5) * cell, y: by + (r + 0.5) * cell, t0: performance.now(), tilt: (Math.random() - 0.5) * 0.2 }); }
   function burst(r, c, v, count) {
     if (fx.parts.length > 300) return;
-    for (let k = 0; k < count; k++) fx.parts.push({ x: bx + (c + 0.5) * cell, y: by + (r + 0.5) * cell, vx: (Math.random() - 0.5) * 0.35, vy: -Math.random() * 0.35 - 0.05, life: 1, col: v ? colorOf(v) : 'rgb(' + TH.w1 + ')', s: cell * (0.1 + Math.random() * 0.12) });
+    for (let k = 0; k < count; k++) fx.parts.push({ x: bx + (c + 0.5) * cell, y: by + (r + 0.5) * cell, vx: (Math.random() - 0.5) * 0.35, vy: -Math.random() * 0.35 - 0.05, a: Math.random() * 6, va: (Math.random() - 0.5) * 0.02, life: 1, col: v ? colorOf(v) : TH.w[1], s: cell * (0.12 + Math.random() * 0.14) });
   }
-  const waveY = (x, now) => Math.sin(x * 0.045 + now * 0.003) * 2.6 + Math.sin(x * 0.11 - now * 0.002) * 1.2;
+  // One cut-paper wave layer: sagging curves with pointed crests, sliding sideways.
+  function wavePath(y, w, amp, shift, bottom) {
+    const x0 = bx - 8 - w + (((shift % w) + w) % w), x1 = bx + cell * N + 8;
+    ctx.beginPath(); ctx.moveTo(x0, y);
+    for (let x = x0; x < x1; x += w) ctx.quadraticCurveTo(x + w / 2, y + amp, x + w, y);
+    if (bottom != null) { ctx.lineTo(x1 + w, bottom); ctx.lineTo(x0, bottom); ctx.closePath(); }
+  }
+  function boat(x, y, u, tilt) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
+    ctx.lineWidth = Math.max(1.4, u * 0.28); ctx.strokeStyle = TH.ink; ctx.lineJoin = 'round';
+    ctx.fillStyle = TH.blocks[0]; ctx.beginPath(); ctx.moveTo(u * 0.1, -u * 0.5); ctx.lineTo(u * 0.1, -u * 3.4); ctx.lineTo(u * 2, -u * 0.9); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = TH.card; ctx.beginPath(); ctx.moveTo(-u * 0.4, -u * 0.6); ctx.lineTo(-u * 0.4, -u * 2.7); ctx.lineTo(-u * 1.7, -u * 0.9); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-u * 2.4, -u * 0.3); ctx.lineTo(u * 2.4, -u * 0.3); ctx.lineTo(u * 1.5, u * 1.1); ctx.lineTo(-u * 1.5, u * 1.1); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
 
   let drag = null;
   function draw(now) {
@@ -577,73 +682,85 @@
     const dt = Math.min(50, now - (fx.last || now)); fx.last = now;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    const bs = cell * N;
+    ctx.font = '800 ' + Math.round(cell * 0.52) + 'px Grandstander, system-ui, sans-serif';
+    const bs = cell * N, bh = bs + SEA, ink = Math.max(2, cell * 0.06);
     ctx.save();
     if (fx.shake > 0.3) { ctx.translate((Math.random() - 0.5) * fx.shake, (Math.random() - 0.5) * fx.shake); fx.shake *= 0.86; }
 
-    // board
-    ctx.fillStyle = TH.board; rr(bx - 6, by - 6, bs + 12, bs + 12, 16); ctx.fill();
+    // the chart: paper, hard shadow, dotted grid
+    ctx.fillStyle = TH.ink; rr(bx - 6 + 4, by - 6 + 5, bs + 12, bh + 12, 15); ctx.fill();
+    ctx.fillStyle = TH.board; rr(bx - 6, by - 6, bs + 12, bh + 12, 15); ctx.fill();
+    ctx.strokeStyle = 'rgba(' + TH.grid + ',0.3)'; ctx.lineWidth = Math.max(1.6, cell * 0.045); ctx.lineCap = 'round';
+    ctx.setLineDash([0.1, cell / 4]);
+    ctx.beginPath();
+    for (let i = 1; i < N; i++) { ctx.moveTo(bx + i * cell, by); ctx.lineTo(bx + i * cell, by + bs); ctx.moveTo(bx, by + i * cell); ctx.lineTo(bx + bs, by + i * cell); }
+    ctx.stroke(); ctx.setLineDash([]);
+
+    const d = dry();
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-      const x = bx + c * cell, y = by + r * cell, v = S.grid[r][c];
-      if (!v) { ctx.fillStyle = TH.cell; rr(x + 1.5, y + 1.5, cell - 3, cell - 3, cell * 0.18); ctx.fill(); continue; }
-      const t0 = fx.pops.get(r * N + c);
-      if (t0 != null && now - t0 < 140) { const k = (now - t0) / 140, s = cell * (0.72 + 0.28 * k); block(x + (cell - s) / 2, y + (cell - s) / 2, s, v); }
-      else { if (t0 != null) fx.pops.delete(r * N + c); block(x, y, cell, v); }
+      const v = S.grid[r][c]; if (!v) continue;
+      const x = bx + c * cell, y = by + r * cell, sd = r * N + c + (v & 15) * 17, t0 = fx.pops.get(r * N + c);
+      if (t0 != null && now - t0 < 150) { const k = (now - t0) / 150, s = cell * (0.7 + 0.3 * k + 0.12 * Math.sin(k * Math.PI)); block(x + (cell - s) / 2, y + (cell - s) / 2, s, v, 1, sd); }
+      else { if (t0 != null) fx.pops.delete(r * N + c); block(x, y, cell, v, 1, sd); }
     }
 
     // ghost + lines that would clear
     if (drag && drag.valid) {
-      ctx.fillStyle = 'rgba(255,255,255,0.16)';
-      const d = dry();
+      ctx.globalAlpha = 0.22; ctx.fillStyle = TH.accent;
       drag.rows.forEach(r => ctx.fillRect(bx, by + r * cell, bs, cell));
       drag.cols.forEach(c => ctx.fillRect(bx + c * cell, by, cell, d * cell));
-      drawPiece(drag.p, bx + drag.c * cell, by + drag.r * cell, cell, 0.5);
+      ctx.globalAlpha = 1;
+      drawPiece(drag.p, bx + drag.c * cell, by + drag.r * cell, cell, 0.5, 40);
     }
 
     // clearing cells
     fx.flashes = fx.flashes.filter(f => now - f.t0 < f.dur);
     for (const f of fx.flashes) {
       const k = (now - f.t0) / f.dur, s = cell * (1 - k * 0.5), o = (cell - s) / 2;
-      for (const [r, c, v] of f.cells) block(bx + c * cell + o, by + r * cell + o, s, v, 1 - k);
+      for (const [r, c, v] of f.cells) block(bx + c * cell + o, by + r * cell + o, s, v, 1 - k, r * N + c);
     }
 
     // row about to flood
     if (!S.over && S.movesToRise === 1 && S.tide < N) {
-      ctx.fillStyle = 'rgba(' + TH.w1 + ',' + (0.22 + 0.14 * Math.sin(now * 0.008)) + ')';
-      ctx.fillRect(bx, by + (dry() - 1) * cell, bs, cell);
+      ctx.globalAlpha = 0.24 + 0.14 * Math.sin(now * 0.008); ctx.fillStyle = TH.w[1];
+      ctx.fillRect(bx - 6, by + (d - 1) * cell, bs + 12, cell); ctx.globalAlpha = 1;
     }
 
-    // water
+    // the sea: three cut-paper layers with a boat tucked between them
     fx.dispTide += (S.tide - fx.dispTide) * Math.min(1, dt * 0.009);
     if (Math.abs(S.tide - fx.dispTide) < 0.002) fx.dispTide = S.tide;
-    if (fx.dispTide > 0.01) {
-      const top = by + (N - fx.dispTide) * cell, bottom = by + bs + 6;
-      ctx.save();
-      rr(bx - 6, by - 6, bs + 12, bs + 12, 16); ctx.clip();
-      const grad = ctx.createLinearGradient(0, top, 0, bottom);
-      grad.addColorStop(0, 'rgba(' + TH.w1 + ',0.74)'); grad.addColorStop(1, 'rgba(' + TH.w2 + ',0.9)');
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.moveTo(bx - 6, bottom);
-      for (let x = bx - 6; x <= bx + bs + 6; x += 4) ctx.lineTo(x, top + waveY(x, now));
-      ctx.lineTo(bx + bs + 6, bottom); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let x = bx - 6; x <= bx + bs + 6; x += 4) { const y = top + waveY(x, now); x === bx - 6 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
-      ctx.stroke();
-      // bubbles
-      if (fx.bubbles.length < 10 && Math.random() < dt * 0.004) fx.bubbles.push({ x: bx + Math.random() * bs, y: bottom, r: 1.5 + Math.random() * 3, v: 0.02 + Math.random() * 0.03 });
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      fx.bubbles = fx.bubbles.filter(b => (b.y -= b.v * dt) > top + 4);
-      for (const b of fx.bubbles) { ctx.beginPath(); ctx.arc(b.x + Math.sin(b.y * 0.08) * 3, b.y, b.r, 0, 7); ctx.fill(); }
-      ctx.restore();
+    const top = by + (N - fx.dispTide) * cell + SEA * 0.3, bottom = by + bh + 8, sw = cell * 0.66, amp = cell * 0.26;
+    ctx.save();
+    rr(bx - 6, by - 6, bs + 12, bh + 12, 15); ctx.clip();
+    ctx.lineWidth = ink; ctx.strokeStyle = TH.ink; ctx.lineJoin = 'round';
+    const layer = (i, dy, speed) => {
+      const y = top + dy + Math.sin(now * 0.0016 + i * 2) * cell * 0.03;
+      wavePath(y, sw, amp, now * speed + i * sw * 0.37, bottom); ctx.fillStyle = TH.w[i]; ctx.fill();
+      wavePath(y, sw, amp, now * speed + i * sw * 0.37); ctx.stroke();
+    };
+    layer(0, 0, 0.012);
+    boat(bx + ((now * 0.011) % (bs + cell * 2)) - cell, top + cell * 0.05 + Math.sin(now * 0.003) * cell * 0.03, cell * 0.11, Math.sin(now * 0.0021) * 0.09);
+    layer(1, cell * 0.2, -0.02);
+    layer(2, cell * 0.42, 0.03);
+    // what the water has taken, still faintly there
+    for (let r = d; r < N; r++) for (let c = 0; c < N; c++) if (S.grid[r][c] && by + r * cell > top + cell * 0.3) block(bx + c * cell, by + r * cell, cell, S.grid[r][c], 0.3, r * N + c + STONE * 17);
+    if (fx.dispTide > 0.4) {
+      if (fx.bubbles.length < 8 && Math.random() < dt * 0.003) fx.bubbles.push({ x: bx + Math.random() * bs, y: bottom, r: cell * (0.04 + Math.random() * 0.06), v: 0.02 + Math.random() * 0.025 });
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.5;
+      fx.bubbles = fx.bubbles.filter(b => (b.y -= b.v * dt) > top + cell * 0.8);
+      for (const b of fx.bubbles) { ctx.beginPath(); ctx.arc(b.x + Math.sin(b.y * 0.08) * 3, b.y, b.r, 0, 7); ctx.stroke(); }
     } else fx.bubbles.length = 0;
+    ctx.restore();
+    ctx.lineWidth = ink * 1.15; ctx.strokeStyle = TH.ink; rr(bx - 6, by - 6, bs + 12, bh + 12, 15); ctx.stroke();
 
-    // particles
-    fx.parts = fx.parts.filter(p => (p.life -= dt / 600) > 0);
+    // confetti
+    fx.parts = fx.parts.filter(p => (p.life -= dt / 650) > 0);
     for (const p of fx.parts) {
-      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += dt * 0.0012;
-      ctx.globalAlpha = p.life; ctx.fillStyle = p.col;
-      rr(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s, p.s * 0.3); ctx.fill();
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += dt * 0.0012; p.a += p.va * dt;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a);
+      ctx.globalAlpha = Math.min(1, p.life * 1.6); ctx.fillStyle = p.col; ctx.strokeStyle = TH.ink; ctx.lineWidth = 1.2;
+      ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * 0.7); ctx.strokeRect(-p.s / 2, -p.s / 2, p.s, p.s * 0.7);
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
     ctx.restore();
@@ -652,22 +769,23 @@
     const slotW = W / 3, ts = cell * 0.5;
     S.tray.forEach((p, i) => {
       if (!p || (drag && drag.i === i)) return;
-      drawPiece(p, i * slotW + (slotW - p.w * ts) / 2, trayY + (trayH - p.h * ts) / 2, ts, fitsAnywhere(p) ? 1 : 0.3);
+      drawPiece(p, i * slotW + (slotW - p.w * ts) / 2, trayY + (trayH - p.h * ts) / 2, ts, fitsAnywhere(p) ? 1 : 0.3, i * 20);
     });
 
     // dragged piece
-    if (drag) drawPiece(drag.p, drag.x, drag.y, cell, drag.valid ? 0.35 : 0.9);
+    if (drag) drawPiece(drag.p, drag.x, drag.y, cell, drag.valid ? 0.35 : 0.92, drag.i * 20);
 
-    // floating score text
-    fx.floaters = fx.floaters.filter(f => now - f.t0 < 900);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = '700 ' + Math.round(cell * 0.5) + 'px system-ui, sans-serif';
+    // score scribbles
+    fx.floaters = fx.floaters.filter(f => now - f.t0 < 950);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
     for (const f of fx.floaters) {
-      const k = (now - f.t0) / 900;
-      ctx.globalAlpha = 1 - k * k;
-      const x = Math.min(Math.max(f.x, bx + cell * 1.6), bx + bs - cell * 1.6);
-      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(5,14,28,0.8)'; ctx.strokeText(f.text, x, f.y - k * cell);
-      ctx.fillStyle = '#ffe9a8'; ctx.fillText(f.text, x, f.y - k * cell);
+      const k = (now - f.t0) / 950, pop = 1 + 0.25 * Math.max(0, 1 - k * 5);
+      ctx.save();
+      ctx.translate(Math.min(Math.max(f.x, bx + cell * 1.7), bx + bs - cell * 1.7), f.y - k * cell * 0.9); ctx.rotate(f.tilt); ctx.scale(pop, pop);
+      ctx.globalAlpha = 1 - k * k * k;
+      ctx.lineWidth = cell * 0.14; ctx.strokeStyle = TH.ink; ctx.strokeText(f.text, 0, 0);
+      ctx.fillStyle = '#fff8e8'; ctx.fillText(f.text, 0, 0);
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
   }
@@ -710,7 +828,8 @@
   cv.addEventListener('pointercancel', drop);
 
   // ---------- Buttons ----------
-  const setSound = () => { $('soundBtn').textContent = P.muted ? 'Sound off' : 'Sound on'; };
+  const SPEAKER = '<svg class="ic" viewBox="0 0 24 24"><path d="M4 10v4h3l5 4V6l-5 4z"/>';
+  const setSound = () => { $('soundBtn').innerHTML = SPEAKER + (P.muted ? '<path d="M16.5 9.5l4.5 5M21 9.5l-4.5 5"/>' : '<path d="M16 9.5c1.3 1.5 1.3 3.5 0 5M18.8 7c2.600 3 2.600 7 0 10"/>') + '</svg>'; };
   $('soundBtn').onclick = () => { P.muted = !P.muted; save(); setSound(); };
   $('restartBtn').onclick = () => { settle(); save(); startRun(S.mode, S.lv); };
   $('gMenu').onclick = () => { settle(); save(); show(S.mode === 'voyage' ? 'map' : 'menu'); };
@@ -728,9 +847,12 @@
   $('themes').onclick = e => {
     const b = e.target.closest('button[data-theme]'); if (!b) return;
     const k = b.dataset.theme, t = THEMES[k];
-    if (!P.owned.includes(k)) { if (P.coins < t.cost) return toast('Not enough coins'); P.coins -= t.cost; P.owned.push(k); }
+    if (!P.owned.includes(k)) { if (P.coins < t.cost) return toast('Not enough coins yet'); P.coins -= t.cost; P.owned.push(k); }
     P.theme = k; save(); applyTheme(); show('shop');
   };
+  $('hero').innerHTML = hero();
+  $('logo').innerHTML = [...'Tidewater'].map((ch, i) => '<span style="transform:rotate(' + [-5, 3, -2, 4, -3, 2, -4, 3, -2][i] + 'deg) translateY(' + [0, 3, -2, 2, -1, 3, 0, -2, 2][i] + 'px)">' + ch + '</span>').join('');
+  if (document.fonts && document.fonts.load) document.fonts.load('800 20px Grandstander');
 
   // ---------- Go ----------
   applyTheme();
