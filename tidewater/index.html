@@ -8,92 +8,146 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0a1a2e">
 <style>
-  :root { --bg: #0a1a2e; --panel: #10294a; --line: #1f4470; --text: #f3ead7; --muted: #9db4cf; --sand: #ffd98a; --water: #38a3d6; }
+  :root { --bg: #0a1a2e; --bg2: #12335a; --panel: #10294a; --line: #1f4470; --text: #f3ead7; --muted: #9db4cf; --accent: #ffd98a; --onaccent: #1a1405; --water: #38a3d6; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
-  body { margin: 0; background: radial-gradient(120% 80% at 50% 0%, #12335a 0%, var(--bg) 60%); color: var(--text); font: 16px/1.4 system-ui, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
-  #app { height: 100%; max-width: 520px; margin: 0 auto; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; }
-  .top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  h1 { margin: 0; font-size: 1.25rem; letter-spacing: 0.08em; color: var(--sand); }
-  .btns { display: flex; gap: 6px; }
-  button { font: 600 0.8rem/1 system-ui, sans-serif; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; cursor: pointer; }
+  body { margin: 0; background: radial-gradient(120% 80% at 50% 0%, var(--bg2) 0%, var(--bg) 60%) var(--bg); color: var(--text); font: 16px/1.4 system-ui, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+  #app { height: 100%; max-width: 520px; margin: 0 auto; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .screen { display: none; height: 100%; flex-direction: column; align-items: center; }
+  .screen.show { display: flex; }
+  button { font: 600 0.82rem/1 system-ui, sans-serif; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; cursor: pointer; }
   button:active { transform: translateY(1px); }
-  .hud { width: 100%; display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 8px; margin: 10px 0 8px; }
-  .stat, .tide { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 7px 10px; text-align: center; }
-  .stat span, .tide span { display: block; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-  .stat b { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.primary { background: var(--accent); color: var(--onaccent); border-color: transparent; }
+  .coin { display: inline-block; width: 0.85em; height: 0.85em; border-radius: 50%; background: #ffcf4a; box-shadow: inset 0 0 0 2px #d99a16; vertical-align: -0.08em; margin-right: 0.35em; }
+
+  /* menu */
+  #menu { justify-content: center; gap: 12px; overflow-y: auto; }
+  .logo { margin: 0; font-size: 2.5rem; letter-spacing: 0.1em; color: var(--accent); }
+  .sub { margin: -8px 0 6px; color: var(--muted); }
+  .purse { font-weight: 700; font-size: 1.1rem; margin-bottom: 6px; }
+  .mode { width: 100%; max-width: 360px; text-align: left; padding: 15px 18px; border-radius: 16px; }
+  .mode b { display: block; font-size: 1.15rem; margin-bottom: 5px; }
+  .mode span { color: var(--muted); font-weight: 500; }
+  .mode.primary span { color: var(--onaccent); opacity: 0.75; }
+  .link { background: none; border: 0; color: var(--muted); text-decoration: underline; }
+
+  /* sub screens */
+  .bar { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .bar h2 { margin: 0; font-size: 1.15rem; letter-spacing: 0.06em; color: var(--accent); flex: 1; text-align: center; }
+  .scroll { width: 100%; flex: 1; overflow-y: auto; padding-bottom: 12px; }
+  #levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  #levels button { aspect-ratio: 1; padding: 0; font-size: 1.1rem; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  #levels small { font-size: 0.7rem; letter-spacing: 0.05em; color: var(--accent); }
+  #levels button.next { border-color: var(--accent); box-shadow: 0 0 14px rgba(255, 217, 138, 0.3); }
+  .theme { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
+  .theme .sw { display: grid; grid-template-columns: repeat(4, 14px); gap: 3px; padding: 8px; border-radius: 10px; }
+  .theme .sw i { width: 14px; height: 14px; border-radius: 4px; }
+  .theme .nm { flex: 1; font-weight: 700; }
+  .theme .nm span { display: block; font-weight: 500; font-size: 0.82rem; color: var(--muted); }
+
+  /* game */
+  .hud { width: 100%; display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 8px; margin: 0 0 8px; }
+  .stat, .tide { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 7px 6px; text-align: center; min-width: 0; }
+  .stat span, .tide span { display: block; font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat b { font-size: 1.3rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
   #pips { display: flex; justify-content: center; gap: 6px; margin-top: 7px; height: 14px; }
   #pips i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--water); }
   #pips i.on { background: var(--water); }
-  .tide.warn { border-color: var(--water); box-shadow: 0 0 18px rgba(56, 163, 214, 0.45); }
+  .tide.warn { border-color: var(--water); box-shadow: 0 0 18px var(--water); }
   canvas { display: block; touch-action: none; }
-  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(5, 14, 28, 0.8); padding: 20px; z-index: 5; }
+  .boost { width: 100%; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-top: 8px; }
+  .boost > * { height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0; }
+  .boost small { font-weight: 500; color: var(--muted); font-size: 0.7rem; }
+  .boost .purse { margin: 0; font-size: 1rem; flex-direction: row; }
+
+  /* modal + toast */
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(5, 10, 20, 0.78); padding: 20px; z-index: 5; }
   .overlay.show { display: flex; }
-  .card { width: 100%; max-width: 360px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 20px; text-align: center; }
-  .card h2 { margin: 0 0 8px; color: var(--sand); font-size: 1.6rem; letter-spacing: 0.06em; }
+  .card { width: 100%; max-width: 360px; max-height: 92vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 18px; text-align: center; }
+  .card h2 { margin: 0 0 8px; color: var(--accent); font-size: 1.5rem; letter-spacing: 0.05em; }
   .card p { margin: 0 0 10px; color: var(--muted); }
-  .card ul { text-align: left; margin: 0 0 16px; padding-left: 20px; color: var(--text); }
+  .card ul { text-align: left; margin: 0 0 14px; padding-left: 20px; }
   .card li { margin: 6px 0; }
-  .card .big { font-size: 2.4rem; font-weight: 700; color: var(--text); margin: 2px 0 2px; font-variant-numeric: tabular-nums; }
-  .card button { background: var(--sand); color: #1a1405; border: 0; font-size: 1rem; padding: 14px 28px; border-radius: 12px; }
+  .card .big { font-size: 2.3rem; font-weight: 700; margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .card .stars { font-size: 2rem; letter-spacing: 0.15em; color: var(--accent); margin: 2px 0 6px; }
+  .card .stars s { text-decoration: none; opacity: 0.25; }
+  #mBtns { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  #mBtns button { font-size: 1rem; padding: 13px 20px; border-radius: 12px; }
+  #toast { position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%); background: var(--text); color: var(--bg); font-weight: 600; padding: 9px 16px; border-radius: 999px; opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 6; white-space: nowrap; }
+  #toast.show { opacity: 1; }
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="top">
-    <h1>TIDEWATER</h1>
-    <div class="btns">
-      <button id="helpBtn">How to play</button>
+  <section class="screen show" id="menu">
+    <h1 class="logo">TIDEWATER</h1>
+    <p class="sub">The sea keeps coming in.</p>
+    <div class="purse"><i class="coin"></i><span id="mCoins">0</span></div>
+    <button class="mode primary" id="mVoyage"><b>Voyage</b><span id="mVoyageSub"></span></button>
+    <button class="mode" id="mEndless"><b>Endless</b><span id="mEndlessSub"></span></button>
+    <button class="mode" id="mDaily"><b>Daily tide</b><span id="mDailySub"></span></button>
+    <button class="mode" id="mShop"><b>Themes</b><span id="mShopSub"></span></button>
+    <button class="link" id="mHelp">How to play</button>
+  </section>
+
+  <section class="screen" id="map">
+    <div class="bar"><button data-go="menu">Back</button><h2>VOYAGE</h2><span id="mapStars"></span></div>
+    <div class="scroll"><div id="levels"></div></div>
+  </section>
+
+  <section class="screen" id="shop">
+    <div class="bar"><button data-go="menu">Back</button><h2>THEMES</h2><span class="purse" style="margin:0"><i class="coin"></i><span id="sCoins">0</span></span></div>
+    <div class="scroll" id="themes"></div>
+  </section>
+
+  <section class="screen" id="game">
+    <div class="bar">
+      <button id="gMenu">Menu</button>
+      <h2 id="gTitle">ENDLESS</h2>
       <button id="soundBtn">Sound on</button>
       <button id="restartBtn">Restart</button>
     </div>
-  </div>
-  <div class="hud">
-    <div class="stat"><span>Score</span><b id="score">0</b></div>
-    <div class="tide" id="tideBox"><span id="tideLabel">Tide in</span><div id="pips"></div></div>
-    <div class="stat"><span>Best</span><b id="best">0</b></div>
-  </div>
-  <canvas id="c"></canvas>
+    <div class="hud">
+      <div class="stat"><span>Score</span><b id="score">0</b></div>
+      <div class="tide" id="tideBox"><span id="tideLabel">Tide in</span><div id="pips"></div></div>
+      <div class="stat"><span id="goalLabel">Best</span><b id="goal">0</b></div>
+    </div>
+    <canvas id="c"></canvas>
+    <div class="boost">
+      <div class="purse"><i class="coin"></i><span id="gCoins">0</span></div>
+      <button id="bUndo">Undo<small id="cUndo"></small></button>
+      <button id="bReroll">New pieces<small id="cReroll"></small></button>
+      <button id="bEbb">Ebb tide<small id="cEbb"></small></button>
+    </div>
+  </section>
 </div>
 
-<div class="overlay show" id="helpOv">
-  <div class="card">
-    <h2>Tidewater</h2>
-    <p>A block puzzle where the sea keeps coming in.</p>
-    <ul>
-      <li>Drag pieces onto the board. Fill a whole row or column to clear it.</li>
-      <li>Every few moves the tide rises one row and drowns whatever is there.</li>
-      <li>Each line you clear pushes the tide back down.</li>
-      <li>Columns only need filling above the waterline, so high water is your chance to fight back.</li>
-      <li>The run ends when no piece fits, or the tide covers the board.</li>
-    </ul>
-    <button id="playBtn">Play</button>
-  </div>
-</div>
-
-<div class="overlay" id="overOv">
-  <div class="card">
-    <h2 id="overTitle">High tide</h2>
-    <p id="overWhy"></p>
-    <div class="big" id="overScore">0</div>
-    <p id="overBest"></p>
-    <button id="againBtn">Play again</button>
-  </div>
-</div>
+<div class="overlay" id="modal"><div class="card"><h2 id="mTitle"></h2><div id="mBody"></div><div id="mBtns"></div></div></div>
+<div id="toast"></div>
 
 <script>
 (() => {
   'use strict';
+  const $ = id => document.getElementById(id);
 
   // ---------- Tuning ----------
-  const N = 8;
+  const N = 8, STONE = 8, PEARL = 16;
   const CFG = {
-    startInterval: 4,   // placements between tide rises at the start
-    minInterval: 1,     // fastest the tide ever gets (late game: every move)
-    linesPerSpeedUp: 25, // every this many cleared lines, the tide gets one move faster
-    maxRecede: 2,       // most rows the tide falls back from a single move
+    startInterval: 3,    // placements between tide rises at the start (endless / daily)
+    minInterval: 2,      // fastest the tide gets
+    linesPerSpeedUp: 20, // cleared lines per one-move speed-up
+    maxRecede: 2,        // most rows the tide falls back from one move
   };
-  const COLORS = ['', '#f4a259', '#f25f5c', '#ffe066', '#b8e07a', '#b388eb', '#f7b2bd', '#f3ead7'];
+  const COST = { undo: 25, reroll: 40, ebb: 60, revive: 100 };
+
+  const THEMES = {
+    harbor: { name: 'Harbor', cost: 0, bg: '#0a1a2e', bg2: '#12335a', panel: '#10294a', line: '#1f4470', text: '#f3ead7', muted: '#9db4cf', accent: '#ffd98a', onaccent: '#1a1405', board: '#0c2038', cell: '#15345a', w1: '72,180,226', w2: '16,78,134', stone: '#8192a8', blocks: ['#f4a259', '#f25f5c', '#ffe066', '#b8e07a', '#b388eb', '#f7b2bd', '#f3ead7'] },
+    sunset: { name: 'Sunset', cost: 300, bg: '#241024', bg2: '#5a2440', panel: '#3a1a36', line: '#6b3358', text: '#ffeede', muted: '#d3a9b8', accent: '#ffb86b', onaccent: '#2a1005', board: '#1f0d1c', cell: '#41203b', w1: '250,140,150', w2: '120,50,110', stone: '#9a8494', blocks: ['#ffd166', '#ef476f', '#f78c6b', '#06d6a0', '#9d8df1', '#ffc8dd', '#fff1d0'] },
+    reef: { name: 'Reef', cost: 600, bg: '#052226', bg2: '#0b4a4f', panel: '#0b3338', line: '#17595f', text: '#eafff6', muted: '#93c9c0', accent: '#7df9c4', onaccent: '#03241c', board: '#051c20', cell: '#0e3d43', w1: '64,224,208', w2: '10,110,120', stone: '#7f9c9a', blocks: ['#ff9f1c', '#ff5d8f', '#f9f871', '#9bf6a2', '#c77dff', '#ffb3c6', '#ffffff'] },
+    chart: { name: 'Sea chart', cost: 1000, bg: '#e9dfc9', bg2: '#f8f2e4', panel: '#e0d4ba', line: '#c2b28f', text: '#2b2a33', muted: '#6b6558', accent: '#1f3a5f', onaccent: '#ffffff', board: '#cfc2a5', cell: '#e6dcc4', w1: '80,135,185', w2: '30,65,115', stone: '#8f8a7e', blocks: ['#d1603d', '#3d5a80', '#e0a526', '#5b8c5a', '#7d5ba6', '#c9728a', '#4a4a55'] },
+  };
+  let TH = THEMES.harbor;
 
   // [weight, rows]
   const SHAPES = [
@@ -113,29 +167,89 @@
   ];
   const TOTAL_W = SHAPES.reduce((a, s) => a + s[0], 0);
 
+  // 40 voyage levels: the goal rotates, the sea gets rougher every five.
+  const LEVELS = Array.from({ length: 40 }, (_, k) => {
+    const n = k + 1, tier = Math.floor(k / 5);
+    const type = n === 1 ? 'lines' : ['score', 'lines', 'pearls'][k % 3];
+    return {
+      n, type,
+      target: type === 'score' ? 120 + n * 30 : type === 'lines' ? 4 + Math.round(n * 0.7) : Math.min(10, 3 + Math.floor(n / 5)),
+      interval: tier < 2 ? 4 : tier < 5 ? 3 : 2,
+      tide: [0, 0, 1, 1, 2, 2, 3, 3][tier],
+      stones: Math.min(14, tier * 2 + (k % 5)),
+      seed: 7000 + n,
+    };
+  });
+  const goalText = L => L.type === 'score' ? 'Score ' + L.target + ' points' : L.type === 'lines' ? 'Clear ' + L.target + ' lines' : 'Collect ' + L.target + ' pearls';
+
+  // ---------- Profile (saved) ----------
+  const P = { coins: 100, best: 0, stars: {}, theme: 'harbor', owned: ['harbor'], muted: false, daily: { date: '', best: 0 }, streak: 0, lastDaily: '', seenHelp: false };
+  try {
+    const raw = localStorage.getItem('tidewater.save.v1');
+    if (raw) Object.assign(P, JSON.parse(raw));
+    else P.best = +localStorage.getItem('tidewater.best') || 0;
+  } catch (e) {}
+  const save = () => { try { localStorage.setItem('tidewater.save.v1', JSON.stringify(P)); } catch (e) {} };
+  const dayStr = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const today = () => dayStr(new Date());
+  const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); return dayStr(d); };
+  const unlocked = n => n === 1 || P.stars[n - 1] > 0;
+  const totalStars = () => Object.values(P.stars).reduce((a, b) => a + b, 0);
+
+  // ---------- Random ----------
+  function mulberry(seed) { // returns [next(), getState]
+    let s = seed | 0;
+    return () => { let t = (s = (s + 0x6D2B79F5) | 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  // Piece randomness: seeded (state kept in S.rs, so undo restores it) for the daily, free otherwise.
+  function rnd() {
+    if (S.rs == null) return Math.random();
+    let t = (S.rs = (S.rs + 0x6D2B79F5) | 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
   function makePiece() {
-    let x = Math.random() * TOTAL_W, rows = SHAPES[0][1];
+    let x = rnd() * TOTAL_W, rows = SHAPES[0][1];
     for (const [w, r] of SHAPES) { if ((x -= w) < 0) { rows = r; break; } }
     const cells = [];
     rows.forEach((line, r) => [...line].forEach((ch, c) => { if (ch === '#') cells.push([r, c]); }));
-    return { cells, h: rows.length, w: rows[0].length, color: 1 + Math.floor(Math.random() * (COLORS.length - 1)) };
+    return { cells, h: rows.length, w: rows[0].length, color: 1 + Math.floor(rnd() * 7) };
   }
 
-  // ---------- State ----------
-  let S;
-  const fx = { flashes: [], floaters: [], dispTide: 0 };
-  let best = 0, muted = false;
-  try { best = +localStorage.getItem('tidewater.best') || 0; muted = localStorage.getItem('tidewater.muted') === '1'; } catch (e) {}
+  // ---------- Game state ----------
+  let S = null, undoSnap = null;
+  const fx = { flashes: [], floaters: [], parts: [], bubbles: [], pops: new Map(), dispTide: 0, shake: 0, last: 0 };
 
   const dry = () => N - S.tide;
-  const riseInterval = () => Math.max(CFG.minInterval, CFG.startInterval - Math.floor(S.lines / CFG.linesPerSpeedUp));
+  const riseInterval = () => S.fixed || Math.max(CFG.minInterval, CFG.startInterval - Math.floor(S.lines / CFG.linesPerSpeedUp));
 
-  function newGame() {
-    S = { grid: Array.from({ length: N }, () => Array(N).fill(0)), tide: 0, score: 0, lines: 0, streak: 0, moves: 0, tray: [null, null, null], over: false, why: '' };
+  function scatter(rand, count, value, minRow) {
+    for (let k = 0, tries = 0; k < count && tries < 400; tries++) {
+      const r = minRow + Math.floor(rand() * (dry() - minRow)), c = Math.floor(rand() * N);
+      if (r < 0 || S.grid[r][c]) continue;
+      if (S.grid[r].filter(v => v).length >= N - 2) continue; // never start with a nearly full row
+      S.grid[r][c] = value; k++;
+    }
+  }
+
+  function startRun(mode, lv) {
+    S = { mode, lv: lv || 0, grid: Array.from({ length: N }, () => Array(N).fill(0)), tide: 0, score: 0, lines: 0, pearls: 0, streak: 0, moves: 0, tray: [null, null, null], over: false, won: false, why: '', paid: 0, revived: false, rs: null, fixed: 0, goal: null };
+    undoSnap = null;
+    if (mode === 'voyage') {
+      const L = LEVELS[lv - 1], rand = mulberry(L.seed);
+      S.tide = L.tide; S.fixed = L.interval; S.goal = { type: L.type, target: L.target };
+      scatter(rand, L.stones, STONE, 2);
+      if (L.type === 'pearls') scatter(rand, L.target, STONE | PEARL, 1);
+    } else if (mode === 'daily') {
+      const seed = +today().replace(/-/g, '');
+      scatter(mulberry(seed), 6, STONE, 3);
+      S.rs = seed + 1;
+    }
     S.interval = riseInterval();
     S.movesToRise = S.interval;
-    fx.flashes.length = 0; fx.floaters.length = 0; fx.dispTide = 0;
+    Object.assign(fx, { flashes: [], floaters: [], parts: [], dispTide: S.tide, shake: 0 });
+    fx.pops.clear();
     refill();
+    show('game');
     hud();
   }
 
@@ -152,7 +266,6 @@
     return false;
   }
   const anyFit = () => S.tray.some(p => p && fitsAnywhere(p));
-
   function refill() {
     for (let tries = 0; tries < 60; tries++) {
       S.tray = [makePiece(), makePiece(), makePiece()];
@@ -173,8 +286,10 @@
     const add = (r, c) => { const k = r * N + c; if (!seen.has(k)) { seen.add(k); cells.push([r, c, S.grid[r][c]]); } };
     rows.forEach(r => { for (let c = 0; c < N; c++) add(r, c); });
     cols.forEach(c => { for (let r = 0; r < d; r++) add(r, c); });
-    cells.forEach(([r, c]) => { S.grid[r][c] = 0; });
+    let pearls = 0;
+    cells.forEach(([r, c, v]) => { S.grid[r][c] = 0; if (v & PEARL) pearls++; burst(r, c, v, 3); });
     if (cells.length) fx.flashes.push({ cells, t0: performance.now(), dur: 320 });
+    if (pearls) { S.pearls += pearls; floater(pearls > 1 ? pearls + ' pearls!' : 'Pearl!', Math.max(0, cells[0][0] - 1), cells[0][1]); }
     return rows.length + cols.length;
   }
 
@@ -183,6 +298,7 @@
     S.lines += n;
     S.tide = Math.max(0, S.tide - Math.min(n, CFG.maxRecede));
     floater('+' + pts + (S.streak > 1 ? '  streak x' + S.streak : ''), r, c);
+    fx.shake = Math.min(10, 3 + n * 2);
     sfx.clear(n);
     return pts;
   }
@@ -190,9 +306,9 @@
   function rise() {
     S.tide++;
     if (S.tide >= N) { end('The tide covered the whole board.'); return; }
-    const r = N - S.tide, drowned = [];
-    for (let c = 0; c < N; c++) if (S.grid[r][c]) { drowned.push([r, c, S.grid[r][c]]); S.grid[r][c] = 0; }
-    if (drowned.length) fx.flashes.push({ cells: drowned, t0: performance.now(), dur: 450 });
+    // Whatever the water covers turns to stone and is still there when the tide goes out.
+    const r = N - S.tide;
+    for (let c = 0; c < N; c++) if (S.grid[r][c]) { S.grid[r][c] = STONE | (S.grid[r][c] & PEARL); burst(r, c, 0, 1); }
     sfx.rise();
     // The rising water can finish a column for you.
     const n = clearLines();
@@ -201,54 +317,188 @@
     S.movesToRise = S.interval;
   }
 
+  const progress = () => !S.goal ? 0 : S.goal.type === 'score' ? S.score : S.goal.type === 'lines' ? S.lines : S.pearls;
+  const goalMet = () => S.goal && progress() >= S.goal.target;
+
   function place(i, r0, c0) {
     const p = S.tray[i];
     if (!p || S.over || !canPlace(p, r0, c0)) return false;
-    for (const [r, c] of p.cells) S.grid[r0 + r][c0 + c] = p.color;
+    undoSnap = JSON.stringify(S);
+    const now = performance.now();
+    for (const [r, c] of p.cells) { S.grid[r0 + r][c0 + c] = p.color; fx.pops.set((r0 + r) * N + c0 + c, now); }
     S.tray[i] = null;
     S.moves++;
     S.score += p.cells.length;
     sfx.place();
     const n = clearLines();
     if (n) { S.streak++; S.score += scoreLines(n, r0 + p.h / 2 - 0.5, c0 + p.w / 2 - 0.5); } else S.streak = 0;
-    if (--S.movesToRise <= 0) rise();
-    if (!S.over) {
+    if (!goalMet() && --S.movesToRise <= 0) rise();
+    if (goalMet()) win();
+    else if (!S.over) {
       if (S.tray.every(x => !x)) refill();
       if (!anyFit()) end('None of your pieces fit above the water.');
     }
-    if (S.score > best) { best = S.score; try { localStorage.setItem('tidewater.best', best); } catch (e) {} }
+    if (S.mode === 'endless' && S.score > P.best) P.best = S.score;
     hud();
     return true;
   }
 
-  function end(why) {
-    S.over = true; S.why = why;
-    sfx.over();
-    setTimeout(() => {
-      if (!S.over) return;
-      $('overTitle').textContent = S.tide >= N ? 'High tide' : 'No room left';
-      $('overWhy').textContent = why;
-      $('overScore').textContent = S.score;
-      $('overBest').textContent = S.score >= best && S.score > 0 ? 'New best!' : 'Best: ' + best;
-      $('overOv').classList.add('show');
-    }, 700);
+  // Coins for points, paid once per point even across a revive.
+  function settle() {
+    if (!S || S.mode === 'voyage') return 0;
+    const earned = Math.floor((S.score - S.paid) / 20);
+    if (earned > 0) { P.coins += earned; S.paid += earned * 20; }
+    return earned;
   }
 
-  // ---------- HUD ----------
-  const $ = id => document.getElementById(id);
+  function end(why) {
+    S.over = true; S.why = why; undoSnap = null;
+    fx.shake = 12;
+    sfx.over();
+    let extra = '';
+    const earned = settle();
+    if (S.mode === 'daily') {
+      const t = today();
+      if (P.daily.date !== t) P.daily = { date: t, best: 0 };
+      if (P.lastDaily !== t) { P.streak = P.lastDaily === yesterday() ? P.streak + 1 : 1; P.lastDaily = t; P.coins += 50; extra = '<p>Daily bonus: <i class="coin"></i>50 &middot; Streak: ' + P.streak + (P.streak === 1 ? ' day' : ' days') + '</p>'; }
+      P.daily.best = Math.max(P.daily.best, S.score);
+    }
+    save();
+    const run = S;
+    setTimeout(() => { if (S === run && S.over && !S.won) showLoss(earned, extra); }, 750);
+  }
+
+  function showLoss(earned, extra) {
+    const btns = [];
+    if (!S.revived) btns.push({ t: 'Keep going  (' + COST.revive + ' coins)', primary: P.coins >= COST.revive, disabled: P.coins < COST.revive, fn: revive });
+    let body = '<p>' + S.why + '</p>';
+    if (S.mode === 'voyage') {
+      body += '<p>' + goalText(LEVELS[S.lv - 1]) + ': ' + progress() + ' / ' + S.goal.target + '</p>';
+      btns.push({ t: 'Try again', primary: S.revived || P.coins < COST.revive, fn: () => startRun('voyage', S.lv) }, { t: 'Level map', fn: () => show('map') });
+    } else {
+      const bestNow = S.mode === 'endless' ? P.best : P.daily.best;
+      body += '<div class="big">' + S.score + '</div><p>' + (S.score >= bestNow && S.score > 0 ? 'New best!' : 'Best: ' + bestNow) + (earned ? ' &middot; <i class="coin"></i>+' + earned : '') + '</p>' + extra;
+      btns.push({ t: 'Play again', primary: S.revived || P.coins < COST.revive, fn: () => startRun(S.mode) }, { t: 'Menu', fn: () => show('menu') });
+    }
+    modal(S.tide >= N ? 'High tide' : 'No room left', body, btns);
+  }
+
+  function revive() {
+    P.coins -= COST.revive; save();
+    S.over = false; S.revived = true; S.why = '';
+    S.tide = Math.max(0, S.tide - 3);
+    for (let r = Math.max(0, dry() - 3); r < dry(); r++) for (let c = 0; c < N; c++) { if (S.grid[r][c]) burst(r, c, S.grid[r][c], 2); S.grid[r][c] = S.grid[r][c] & PEARL ? S.grid[r][c] : 0; }
+    S.movesToRise = S.interval;
+    refill();
+    sfx.clear(2);
+    hud();
+  }
+
+  function win() {
+    S.over = true; S.won = true; undoSnap = null;
+    const L = LEVELS[S.lv - 1], stars = S.tide <= 1 ? 3 : S.tide <= 3 ? 2 : 1;
+    const first = !P.stars[L.n], coins = 10 + stars * 5 + (first ? 30 : 0);
+    P.stars[L.n] = Math.max(P.stars[L.n] || 0, stars);
+    P.coins += coins; save();
+    sfx.win();
+    for (let k = 0; k < 40; k++) burst(Math.random() * N, Math.random() * N, 1 + (k % 7), 1);
+    const run = S;
+    setTimeout(() => {
+      if (S !== run) return;
+      const btns = [];
+      if (L.n < LEVELS.length) btns.push({ t: 'Next level', primary: true, fn: () => preLevel(L.n + 1) });
+      btns.push({ t: 'Play again', fn: () => startRun('voyage', L.n) }, { t: 'Level map', primary: L.n === LEVELS.length, fn: () => show('map') });
+      modal('Level ' + L.n + ' clear', '<div class="stars">' + '★'.repeat(stars) + '<s>' + '★'.repeat(3 - stars) + '</s></div><p>' + (stars === 3 ? 'The tide is out. Perfect.' : 'Finish with the tide lower for more stars.') + '</p><p><i class="coin"></i>+' + coins + (first ? ' (first clear bonus)' : '') + '</p>', btns);
+    }, 750);
+  }
+
+  function useBooster(k) {
+    if (!S || S.over || modalOpen()) return;
+    if (P.coins < COST[k]) return toast('Not enough coins');
+    if (k === 'undo') { if (!undoSnap) return toast('Nothing to undo'); S = JSON.parse(undoSnap); undoSnap = null; fx.pops.clear(); }
+    if (k === 'reroll') { undoSnap = null; refill(); }
+    if (k === 'ebb') { if (S.tide === 0) return toast('The tide is already out'); undoSnap = null; S.tide = Math.max(0, S.tide - 2); sfx.rise(); }
+    P.coins -= COST[k]; save(); hud();
+  }
+
+  // ---------- Screens ----------
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('show', s.id === id));
+    if (id === 'menu') {
+      const next = LEVELS.find(L => !P.stars[L.n]);
+      $('mCoins').textContent = P.coins;
+      $('mVoyageSub').textContent = (next ? 'Level ' + next.n + ' of ' + LEVELS.length : 'All levels clear') + ' · ★ ' + totalStars() + '/' + LEVELS.length * 3;
+      $('mEndlessSub').textContent = P.best ? 'Best ' + P.best : 'How long can you hold back the sea?';
+      const played = P.lastDaily === today();
+      $('mDailySub').textContent = played ? 'Today ' + P.daily.best + ' · Streak ' + P.streak + (P.streak === 1 ? ' day' : ' days') : 'Same board for everyone today · +50 coins';
+      $('mShopSub').textContent = P.owned.length + ' of ' + Object.keys(THEMES).length + ' unlocked';
+    }
+    if (id === 'map') {
+      $('mapStars').textContent = '★ ' + totalStars() + '/' + LEVELS.length * 3;
+      const next = LEVELS.find(L => !P.stars[L.n]);
+      $('levels').innerHTML = LEVELS.map(L => '<button data-lv="' + L.n + '"' + (unlocked(L.n) ? '' : ' disabled') + (next && next.n === L.n ? ' class="next"' : '') + '>' + L.n + '<small>' + (P.stars[L.n] ? '★'.repeat(P.stars[L.n]) : unlocked(L.n) ? '&nbsp;' : 'locked') + '</small></button>').join('');
+    }
+    if (id === 'shop') {
+      $('sCoins').textContent = P.coins;
+      $('themes').innerHTML = Object.entries(THEMES).map(([k, t]) => {
+        const own = P.owned.includes(k), on = P.theme === k;
+        return '<div class="theme"><div class="sw" style="background:' + t.board + '">' + t.blocks.concat('rgb(' + t.w1 + ')').map(b => '<i style="background:' + b + '"></i>').join('') + '</div><div class="nm">' + t.name + '<span>' + (on ? 'In use' : own ? 'Owned' : t.cost + ' coins') + '</span></div><button data-theme="' + k + '"' + (on ? ' disabled' : '') + (own || P.coins >= t.cost ? ' class="primary"' : '') + '>' + (on ? 'In use' : own ? 'Use' : 'Buy') + '</button></div>';
+      }).join('');
+    }
+    if (id === 'game') layout();
+  }
+
+  function preLevel(n) {
+    const L = LEVELS[n - 1];
+    modal('Level ' + n, '<div class="big" style="font-size:1.5rem">' + goalText(L) + '</div><p>Tide rises every ' + L.interval + ' moves' + (L.tide ? ' and starts ' + L.tide + (L.tide === 1 ? ' row' : ' rows') + ' up' : '') + '.</p>' + (L.type === 'pearls' ? '<p>Clear the line a pearl sits in to collect it.</p>' : '') + '<p>Finish with the tide low for three stars.</p>', [{ t: 'Play', primary: true, fn: () => startRun('voyage', n) }, { t: 'Back', fn: () => show('map') }]);
+  }
+
+  function applyTheme() {
+    TH = THEMES[P.theme] || THEMES.harbor;
+    const st = document.documentElement.style;
+    ['bg', 'bg2', 'panel', 'line', 'text', 'muted', 'accent', 'onaccent'].forEach(k => st.setProperty('--' + k, TH[k]));
+    st.setProperty('--water', 'rgb(' + TH.w1 + ')');
+    document.querySelector('meta[name=theme-color]').content = TH.bg;
+  }
+
+  const modalOpen = () => $('modal').classList.contains('show');
+  function modal(title, html, btns) {
+    $('mTitle').textContent = title; $('mBody').innerHTML = html;
+    const box = $('mBtns'); box.innerHTML = '';
+    btns.forEach(b => {
+      const e = document.createElement('button');
+      e.textContent = b.t; if (b.primary) e.className = 'primary'; if (b.disabled) e.disabled = true;
+      e.onclick = () => { $('modal').classList.remove('show'); if (b.fn) b.fn(); };
+      box.appendChild(e);
+    });
+    $('modal').classList.add('show');
+  }
+  function help() {
+    P.seenHelp = true; save();
+    modal('How to play', '<ul><li>Drag pieces onto the board. Fill a whole row or column to clear it.</li><li>Every few moves the tide rises one row. Blocks it covers turn to stone and are still there when the water drops.</li><li>Each line you clear pushes the tide back down.</li><li>Columns only need filling above the waterline, so high water is your chance to fight back.</li><li>The run ends when none of your pieces fit above the water.</li></ul>', [{ t: 'Got it', primary: true }]);
+  }
+  let toastT = 0;
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1400); }
+
   function hud() {
     $('score').textContent = S.score;
-    $('best').textContent = best;
+    if (S.goal) { $('goalLabel').textContent = S.goal.type === 'score' ? 'Target' : S.goal.type; $('goal').textContent = (S.goal.type === 'score' ? '' : Math.min(progress(), S.goal.target) + '/') + S.goal.target; }
+    else { $('goalLabel').textContent = S.mode === 'daily' ? 'Today' : 'Best'; $('goal').textContent = S.mode === 'daily' ? (P.daily.date === today() ? P.daily.best : 0) : P.best; }
+    $('gTitle').textContent = S.mode === 'voyage' ? 'LEVEL ' + S.lv : S.mode === 'daily' ? 'DAILY TIDE' : 'ENDLESS';
     const left = Math.max(0, S.movesToRise);
     $('tideLabel').textContent = 'Tide in ' + left + (left === 1 ? ' move' : ' moves');
     $('pips').innerHTML = Array.from({ length: S.interval }, (_, i) => '<i class="' + (i < left ? 'on' : '') + '"></i>').join('');
     $('tideBox').classList.toggle('warn', left === 1 && !S.over);
+    $('gCoins').textContent = P.coins;
+    $('bUndo').disabled = S.over || !undoSnap || P.coins < COST.undo;
+    $('bReroll').disabled = S.over || P.coins < COST.reroll;
+    $('bEbb').disabled = S.over || S.tide === 0 || P.coins < COST.ebb;
   }
 
   // ---------- Sound ----------
   let ac = null;
   function tone(f, d, type, v, when, f2) {
-    if (muted) return;
+    if (P.muted) return;
     try {
       ac = ac || new (window.AudioContext || window.webkitAudioContext)();
       if (ac.state === 'suspended') ac.resume();
@@ -262,12 +512,13 @@
       o.start(t); o.stop(t + d + 0.02);
     } catch (e) {}
   }
-  const buzz = ms => { if (!muted && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } };
+  const buzz = ms => { if (!P.muted && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } };
   const sfx = {
     place: () => { tone(220, 0.09, 'triangle', 0.1, 0, 140); buzz(8); },
     clear: n => { [523, 659, 784, 1047].slice(0, 2 + Math.min(n, 2)).forEach((f, i) => tone(f, 0.16, 'sine', 0.09, i * 0.06)); buzz(25); },
     rise: () => tone(90, 0.5, 'sine', 0.14, 0, 180),
     over: () => { tone(330, 0.25, 'triangle', 0.1, 0, 220); tone(220, 0.45, 'triangle', 0.1, 0.22, 110); },
+    win: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'sine', 0.09, i * 0.09)),
   };
 
   // ---------- Layout ----------
@@ -275,10 +526,11 @@
   let W = 0, H = 0, dpr = 1, cell = 0, bx = 0, by = 0, trayY = 0, trayH = 0;
   const PAD = 8;
   function layout() {
-    const app = $('app'), used = cv.getBoundingClientRect().top - app.getBoundingClientRect().top;
-    const availH = window.innerHeight - used - 24, availW = Math.min(window.innerWidth - 24, 496);
-    W = Math.max(220, Math.floor(Math.min(availW, availH / 1.42)));
-    H = Math.floor(Math.min(Math.max(availH, W * 1.42), W * 1.6));
+    if (!$('game').classList.contains('show')) return;
+    const used = cv.getBoundingClientRect().top;
+    const availH = window.innerHeight - used - 76, availW = Math.min(window.innerWidth - 24, 496);
+    W = Math.max(200, Math.floor(Math.min(availW, availH / 1.4)));
+    H = Math.floor(Math.min(Math.max(availH, W * 1.4), W * 1.55));
     dpr = Math.min(window.devicePixelRatio || 1, 3);
     cv.style.width = W + 'px'; cv.style.height = H + 'px';
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
@@ -296,79 +548,111 @@
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
   }
-  function block(x, y, s, color, alpha) {
-    const g = Math.max(1, s * 0.04);
-    ctx.globalAlpha = alpha == null ? 1 : alpha;
-    ctx.fillStyle = color; rr(x + g, y + g, s - g * 2, s - g * 2, s * 0.2); ctx.fill();
+  const colorOf = v => (v & 15) === STONE ? TH.stone : TH.blocks[(v & 15) - 1] || TH.stone;
+  function block(x, y, s, v, alpha) {
+    const g = Math.max(1, s * 0.04), a = alpha == null ? 1 : alpha;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = colorOf(v); rr(x + g, y + g, s - g * 2, s - g * 2, s * 0.2); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.3)'; rr(x + s * 0.16, y + s * 0.13, s * 0.68, s * 0.2, s * 0.1); ctx.fill();
     ctx.fillStyle = 'rgba(0,0,0,0.16)'; rr(x + s * 0.16, y + s * 0.74, s * 0.68, s * 0.13, s * 0.06); ctx.fill();
+    if (v & PEARL) {
+      ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s * 0.24, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,170,200,0.55)'; ctx.beginPath(); ctx.arc(x + s * 0.56, y + s * 0.56, s * 0.13, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + s * 0.43, y + s * 0.43, s * 0.07, 0, 7); ctx.fill();
+    }
     ctx.globalAlpha = 1;
   }
-  function drawPiece(p, x, y, s, alpha) { for (const [r, c] of p.cells) block(x + c * s, y + r * s, s, COLORS[p.color], alpha); }
+  function drawPiece(p, x, y, s, alpha) { for (const [r, c] of p.cells) block(x + c * s, y + r * s, s, p.color, alpha); }
   function floater(text, r, c) { fx.floaters.push({ text, x: bx + (c + 0.5) * cell, y: by + (r + 0.5) * cell, t0: performance.now() }); }
+  function burst(r, c, v, count) {
+    if (fx.parts.length > 300) return;
+    for (let k = 0; k < count; k++) fx.parts.push({ x: bx + (c + 0.5) * cell, y: by + (r + 0.5) * cell, vx: (Math.random() - 0.5) * 0.35, vy: -Math.random() * 0.35 - 0.05, life: 1, col: v ? colorOf(v) : 'rgb(' + TH.w1 + ')', s: cell * (0.1 + Math.random() * 0.12) });
+  }
+  const waveY = (x, now) => Math.sin(x * 0.045 + now * 0.003) * 2.6 + Math.sin(x * 0.11 - now * 0.002) * 1.2;
 
   let drag = null;
   function draw(now) {
+    requestAnimationFrame(draw);
+    if (!S || !W || !$('game').classList.contains('show')) return;
+    const dt = Math.min(50, now - (fx.last || now)); fx.last = now;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
     const bs = cell * N;
+    ctx.save();
+    if (fx.shake > 0.3) { ctx.translate((Math.random() - 0.5) * fx.shake, (Math.random() - 0.5) * fx.shake); fx.shake *= 0.86; }
 
     // board
-    ctx.fillStyle = '#0c2038'; rr(bx - 6, by - 6, bs + 12, bs + 12, 16); ctx.fill();
+    ctx.fillStyle = TH.board; rr(bx - 6, by - 6, bs + 12, bs + 12, 16); ctx.fill();
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-      const x = bx + c * cell, y = by + r * cell;
-      if (S.grid[r][c]) block(x, y, cell, COLORS[S.grid[r][c]]);
-      else { ctx.fillStyle = '#15345a'; rr(x + 1.5, y + 1.5, cell - 3, cell - 3, cell * 0.18); ctx.fill(); }
+      const x = bx + c * cell, y = by + r * cell, v = S.grid[r][c];
+      if (!v) { ctx.fillStyle = TH.cell; rr(x + 1.5, y + 1.5, cell - 3, cell - 3, cell * 0.18); ctx.fill(); continue; }
+      const t0 = fx.pops.get(r * N + c);
+      if (t0 != null && now - t0 < 140) { const k = (now - t0) / 140, s = cell * (0.72 + 0.28 * k); block(x + (cell - s) / 2, y + (cell - s) / 2, s, v); }
+      else { if (t0 != null) fx.pops.delete(r * N + c); block(x, y, cell, v); }
     }
 
     // ghost + lines that would clear
     if (drag && drag.valid) {
-      ctx.fillStyle = 'rgba(255,217,138,0.2)';
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
       const d = dry();
       drag.rows.forEach(r => ctx.fillRect(bx, by + r * cell, bs, cell));
       drag.cols.forEach(c => ctx.fillRect(bx + c * cell, by, cell, d * cell));
       drawPiece(drag.p, bx + drag.c * cell, by + drag.r * cell, cell, 0.5);
     }
 
-    // clearing / drowning cells
+    // clearing cells
     fx.flashes = fx.flashes.filter(f => now - f.t0 < f.dur);
     for (const f of fx.flashes) {
       const k = (now - f.t0) / f.dur, s = cell * (1 - k * 0.5), o = (cell - s) / 2;
-      for (const [r, c, col] of f.cells) block(bx + c * cell + o, by + r * cell + o, s, COLORS[col], 1 - k);
+      for (const [r, c, v] of f.cells) block(bx + c * cell + o, by + r * cell + o, s, v, 1 - k);
     }
 
     // row about to flood
     if (!S.over && S.movesToRise === 1 && S.tide < N) {
-      ctx.fillStyle = 'rgba(56,163,214,' + (0.2 + 0.12 * Math.sin(now * 0.008)) + ')';
+      ctx.fillStyle = 'rgba(' + TH.w1 + ',' + (0.22 + 0.14 * Math.sin(now * 0.008)) + ')';
       ctx.fillRect(bx, by + (dry() - 1) * cell, bs, cell);
     }
 
     // water
-    fx.dispTide += (S.tide - fx.dispTide) * 0.14;
+    fx.dispTide += (S.tide - fx.dispTide) * Math.min(1, dt * 0.009);
     if (Math.abs(S.tide - fx.dispTide) < 0.002) fx.dispTide = S.tide;
     if (fx.dispTide > 0.01) {
       const top = by + (N - fx.dispTide) * cell, bottom = by + bs + 6;
       ctx.save();
       rr(bx - 6, by - 6, bs + 12, bs + 12, 16); ctx.clip();
       const grad = ctx.createLinearGradient(0, top, 0, bottom);
-      grad.addColorStop(0, 'rgba(72,180,226,0.93)'); grad.addColorStop(1, 'rgba(16,78,134,0.97)');
+      grad.addColorStop(0, 'rgba(' + TH.w1 + ',0.74)'); grad.addColorStop(1, 'rgba(' + TH.w2 + ',0.9)');
       ctx.fillStyle = grad;
       ctx.beginPath(); ctx.moveTo(bx - 6, bottom);
-      for (let x = bx - 6; x <= bx + bs + 6; x += 4) ctx.lineTo(x, top + Math.sin(x * 0.045 + now * 0.003) * 2.6 + Math.sin(x * 0.11 - now * 0.002) * 1.2);
+      for (let x = bx - 6; x <= bx + bs + 6; x += 4) ctx.lineTo(x, top + waveY(x, now));
       ctx.lineTo(bx + bs + 6, bottom); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = 'rgba(220,245,255,0.75)'; ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2;
       ctx.beginPath();
-      for (let x = bx - 6; x <= bx + bs + 6; x += 4) { const y = top + Math.sin(x * 0.045 + now * 0.003) * 2.6 + Math.sin(x * 0.11 - now * 0.002) * 1.2; x === bx - 6 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      for (let x = bx - 6; x <= bx + bs + 6; x += 4) { const y = top + waveY(x, now); x === bx - 6 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
       ctx.stroke();
+      // bubbles
+      if (fx.bubbles.length < 10 && Math.random() < dt * 0.004) fx.bubbles.push({ x: bx + Math.random() * bs, y: bottom, r: 1.5 + Math.random() * 3, v: 0.02 + Math.random() * 0.03 });
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      fx.bubbles = fx.bubbles.filter(b => (b.y -= b.v * dt) > top + 4);
+      for (const b of fx.bubbles) { ctx.beginPath(); ctx.arc(b.x + Math.sin(b.y * 0.08) * 3, b.y, b.r, 0, 7); ctx.fill(); }
       ctx.restore();
+    } else fx.bubbles.length = 0;
+
+    // particles
+    fx.parts = fx.parts.filter(p => (p.life -= dt / 600) > 0);
+    for (const p of fx.parts) {
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += dt * 0.0012;
+      ctx.globalAlpha = p.life; ctx.fillStyle = p.col;
+      rr(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s, p.s * 0.3); ctx.fill();
     }
+    ctx.globalAlpha = 1;
+    ctx.restore();
 
     // tray
     const slotW = W / 3, ts = cell * 0.5;
     S.tray.forEach((p, i) => {
       if (!p || (drag && drag.i === i)) return;
-      const fits = fitsAnywhere(p);
-      drawPiece(p, i * slotW + (slotW - p.w * ts) / 2, trayY + (trayH - p.h * ts) / 2, ts, fits ? 1 : 0.3);
+      drawPiece(p, i * slotW + (slotW - p.w * ts) / 2, trayY + (trayH - p.h * ts) / 2, ts, fitsAnywhere(p) ? 1 : 0.3);
     });
 
     // dragged piece
@@ -383,14 +667,12 @@
       ctx.globalAlpha = 1 - k * k;
       const x = Math.min(Math.max(f.x, bx + cell * 1.6), bx + bs - cell * 1.6);
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(5,14,28,0.8)'; ctx.strokeText(f.text, x, f.y - k * cell);
-      ctx.fillStyle = '#ffd98a'; ctx.fillText(f.text, x, f.y - k * cell);
+      ctx.fillStyle = '#ffe9a8'; ctx.fillText(f.text, x, f.y - k * cell);
     }
     ctx.globalAlpha = 1;
-    requestAnimationFrame(draw);
   }
 
   // ---------- Input ----------
-  const overlayOpen = () => document.querySelector('.overlay.show');
   function pos(e) { const b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; }
   function moveDrag(e) {
     const [px, py] = pos(e), p = drag.p;
@@ -403,12 +685,12 @@
     drag.rows = []; drag.cols = [];
     if (drag.valid) {
       const g = S.grid.map(row => row.slice());
-      for (const [rr2, cc2] of p.cells) g[r + rr2][c + cc2] = p.color;
+      for (const [r2, c2] of p.cells) g[r + r2][c + c2] = p.color;
       const f = fullLines(g); drag.rows = f.rows; drag.cols = f.cols;
     }
   }
   cv.addEventListener('pointerdown', e => {
-    if (drag || S.over || overlayOpen()) return;
+    if (drag || !S || S.over || modalOpen()) return;
     const [px, py] = pos(e);
     if (py < trayY - PAD) return;
     const i = Math.min(2, Math.max(0, Math.floor(px / (W / 3)))), p = S.tray[i];
@@ -428,21 +710,37 @@
   cv.addEventListener('pointercancel', drop);
 
   // ---------- Buttons ----------
-  const setSound = () => { $('soundBtn').textContent = muted ? 'Sound off' : 'Sound on'; };
-  $('soundBtn').onclick = () => { muted = !muted; try { localStorage.setItem('tidewater.muted', muted ? '1' : '0'); } catch (e) {} setSound(); };
-  $('restartBtn').onclick = () => { $('overOv').classList.remove('show'); newGame(); };
-  $('againBtn').onclick = () => { $('overOv').classList.remove('show'); newGame(); };
-  $('helpBtn').onclick = () => $('helpOv').classList.add('show');
-  $('playBtn').onclick = () => $('helpOv').classList.remove('show');
+  const setSound = () => { $('soundBtn').textContent = P.muted ? 'Sound off' : 'Sound on'; };
+  $('soundBtn').onclick = () => { P.muted = !P.muted; save(); setSound(); };
+  $('restartBtn').onclick = () => { settle(); save(); startRun(S.mode, S.lv); };
+  $('gMenu').onclick = () => { settle(); save(); show(S.mode === 'voyage' ? 'map' : 'menu'); };
+  $('mVoyage').onclick = () => show('map');
+  $('mEndless').onclick = () => startRun('endless');
+  $('mDaily').onclick = () => startRun('daily');
+  $('mShop').onclick = () => show('shop');
+  $('mHelp').onclick = help;
+  $('bUndo').onclick = () => useBooster('undo');
+  $('bReroll').onclick = () => useBooster('reroll');
+  $('bEbb').onclick = () => useBooster('ebb');
+  $('cUndo').textContent = COST.undo; $('cReroll').textContent = COST.reroll; $('cEbb').textContent = COST.ebb;
+  document.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => show(b.dataset.go); });
+  $('levels').onclick = e => { const b = e.target.closest('button[data-lv]'); if (b && !b.disabled) preLevel(+b.dataset.lv); };
+  $('themes').onclick = e => {
+    const b = e.target.closest('button[data-theme]'); if (!b) return;
+    const k = b.dataset.theme, t = THEMES[k];
+    if (!P.owned.includes(k)) { if (P.coins < t.cost) return toast('Not enough coins'); P.coins -= t.cost; P.owned.push(k); }
+    P.theme = k; save(); applyTheme(); show('shop');
+  };
 
   // ---------- Go ----------
+  applyTheme();
   setSound();
-  newGame();
-  layout();
+  show('menu');
+  if (!P.seenHelp) help();
   requestAnimationFrame(draw);
 
   // Hook for automated playtests.
-  window.__tw = { get S() { return S; }, CFG, N, place, canPlace, fullLines, newGame, dry };
+  window.__tw = { get S() { return S; }, P, CFG, N, LEVELS, place, canPlace, fullLines, startRun, dry, useBooster, show };
 })();
 </script>
 </body>
