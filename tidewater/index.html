@@ -243,7 +243,7 @@
   const GOAL_TIP = { pearls: 'Clear the line a pearl sits in to pocket it.', stones: 'Stones break when their line clears. Anything the tide soaks counts too.', iron: 'Iron-bound stones take two clears: the first only knocks the iron off.', storm: 'Storm level: the tide comes up two rows at a time.', doubles: 'A double is two or more lines cleared with one piece.' };
 
   // ---------- Profile (saved) ----------
-  const P = { coins: 100, best: 0, stars: {}, theme: 'postcard', owned: ['postcard'], muted: false, daily: { date: '', best: 0 }, streak: 0, lastDaily: '', seenHelp: false, inv: { undo: 3, swap: 1 }, wind: 0, chests: 0, gift: { last: '', day: 0 } };
+  const P = { coins: 100, best: 0, stars: {}, theme: 'postcard', owned: ['postcard'], muted: false, daily: { date: '', best: 0 }, streak: 0, lastDaily: '', seenHelp: false, music: true, inv: { undo: 3, swap: 1 }, wind: 0, chests: 0, gift: { last: '', day: 0 } };
   try {
     const raw = localStorage.getItem('tidewater.save.v1');
     if (raw) Object.assign(P, JSON.parse(raw));
@@ -378,8 +378,8 @@
     if (!cells.length) return 0;
     fx.flashes.push({ cells, t0: performance.now(), dur: 320 });
     const [r0, c0] = cells[0];
-    if (pearls) { S.pearls += pearls; floater(pearls > 1 ? pearls + ' pearls!' : 'Pearl!', Math.max(0, r0 - 1), c0); }
-    if (coins) { P.coins += coins * 3; floater('+' + coins * 3 + ' coins', r0 + 1, c0 + 2); }
+    if (pearls) { sfx.pearl(); S.pearls += pearls; floater(pearls > 1 ? pearls + ' pearls!' : 'Pearl!', Math.max(0, r0 - 1), c0); }
+    if (coins) { sfx.coin(); P.coins += coins * 3; floater('+' + coins * 3 + ' coins', r0 + 1, c0 + 2); }
     if (buoys) { S.tide = Math.max(0, S.tide - buoys); floater('Tide back!', r0 + 1, c0 - 2); }
     if (kegs) { fx.shake = 13; sfx.boom(); }
     return cells.length;
@@ -439,7 +439,7 @@
     else if (!S.over) {
       if (S.tray.every(x => !x)) refill();
       if (S.limit && S.moves >= S.limit) end('Out of moves.');
-      else if (!anyFit()) { if (canRescue()) S.stuck = true; else end(NO_ROOM); }
+      else if (!anyFit()) { if (canRescue()) { S.stuck = true; sfx.stuck(); } else end(NO_ROOM); }
     }
     if (S.mode === 'endless' && S.score > P.best) P.best = S.score;
     hud();
@@ -551,10 +551,10 @@
     if (aim) { const same = aim === k; setAim(null); if (same) return; }
     if (!canPay(k)) return toast('None left, and one costs ' + it.cost + ' coins');
     if (it.aim) return setAim(k);
-    if (k === 'undo') { if (!undoSnap) return toast('Nothing to take back'); S = JSON.parse(undoSnap); fx.pops.clear(); }
+    if (k === 'undo') { if (!undoSnap) return toast('Nothing to take back'); S = JSON.parse(undoSnap); fx.pops.clear(); sfx.undo(); }
     if (k === 'ebb') { if (S.tide === 0) return toast('The tide is already out'); S.tide = Math.max(0, S.tide - 2); sfx.rise(); }
-    if (k === 'swap') refill();
-    if (k === 'sandbags') { S.calm += 8; S.tide = Math.max(0, S.tide - 1); }
+    if (k === 'swap') { refill(); sfx.swap(); }
+    if (k === 'sandbags') { sfx.bags(); S.calm += 8; S.tide = Math.max(0, S.tide - 1); }
     undoSnap = null; spend(k); afterItem(); hud();
   }
   // A tap while an item is waiting for a target. px, py are canvas coordinates.
@@ -566,7 +566,7 @@
       if (!p) return false;
       const h = p.h;
       p.cells = p.cells.map(([r, c]) => [c, h - 1 - r]); p.h = p.w; p.w = h;
-      sfx.place();
+      sfx.twist();
     } else {
       const r = Math.floor((py - by) / cell), c = Math.floor((px - bx) / cell), list = [];
       if (r < 0 || r >= d || c < 0 || c >= N) return false;
@@ -574,7 +574,7 @@
       if (k === 'charge') for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) list.push([r + a, c + b]);
       if (k === 'harpoon') for (let x = 0; x < N; x++) list.push([r, x]);
       if (!removeCells(list)) { toast('Nothing there to hit'); return false; }
-      fx.shake = Math.max(fx.shake, 8); sfx.boom();
+      fx.shake = Math.max(fx.shake, 8); if (k === 'mallet') sfx.chop(); else if (k === 'harpoon') sfx.slice(); else sfx.boom();
     }
     undoSnap = null; spend(k); setAim(null, true);
     afterItem();
@@ -640,6 +640,7 @@
 
   function show(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('show', s.id === id));
+    ambience();
     if (id === 'menu') {
       const next = LEVELS.find(L => !P.stars[L.n]);
       $('mCoins').textContent = P.coins;
@@ -694,14 +695,14 @@
       e.onclick = () => { $('modal').classList.remove('show'); if (b.fn) b.fn(); };
       box.appendChild(e);
     });
-    $('modal').classList.add('show');
+    $('modal').classList.add('show'); sfx.open();
   }
   function help() {
     P.seenHelp = true; save();
     modal('How it works', '<ul><li>Drag pieces onto the board. Fill a whole row or column and it clears.</li><li>Every few moves the tide comes up a row. Anything it covers turns to stone, and is still sitting there when the water drops.</li><li>Each line you clear pushes the tide back out.</li><li>Columns only need filling above the waterline, so high water is your chance to fight back.</li><li>Some blocks carry extras. Clear their line and coins pay out, powder kegs blast their neighbours, and lifebuoys push the tide back.</li><li>You are done when none of your pieces fit above the water.</li></ul>', [{ t: 'Got it', primary: true, fn: gift }]);
   }
   let toastT = 0;
-  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1400); }
+  function toast(msg) { sfx.deny(); const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1400); }
 
   function hud() {
     $('score').textContent = S.score;
@@ -718,12 +719,35 @@
   }
 
   // ---------- Sound ----------
-  let ac = null;
-  function tone(f, d, type, v, when, f2) {
-    if (P.muted) return;
+  // Recorded effects are cut from one file (audio/sfx.ogg) by start time and length, in seconds.
+  // Sources and licences (all CC0) are listed in audio/CREDITS.txt.
+  const CUTS = {"place1": [0.0, 0.277], "place2": [0.357, 0.354], "place3": [0.79, 0.261], "tick": [1.132, 0.045], "tap": [1.257, 0.115], "clear1": [1.451, 0.295], "clear2": [1.826, 0.324], "clear3": [2.23, 0.562], "wave": [2.871, 2.25], "thump": [5.201, 0.603], "coin": [5.885, 0.846], "pearl": [6.81, 0.292], "deny": [7.182, 0.104], "stuck": [7.366, 0.501], "win": [7.947, 0.501], "over": [8.528, 0.547], "undo": [9.155, 0.091], "swap": [9.326, 0.43], "twist": [9.837, 0.504], "chop": [10.42, 0.24], "slice": [10.74, 0.6], "bags": [11.42, 0.415], "open": [11.915, 0.148], "close": [12.143, 0.148], "gull1": [12.371, 1.556], "gull2": [14.007, 1.451], "gull3": [15.538, 1.078]};
+  const VOL = { sfx: 0.8, sea: 0.22, music: 0.28, gull: 0.18 };
+  let ac = null, clips = null, seaBuf = null, seaSrc = null, seaGain = null, music = null, woke = false, gullAt = 0;
+  function audio() {
     try {
-      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-      if (ac.state === 'suspended') ac.resume();
+      if (!ac) {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        const get = (url, done) => fetch(url).then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b)).then(done).catch(() => {});
+        get('audio/sfx.ogg', b => { clips = b; });
+        get('audio/sea.ogg', b => { seaBuf = b; ambience(); });
+      }
+      if (ac.state === 'suspended' && !document.hidden) ac.resume();
+    } catch (e) {}
+    return ac;
+  }
+  function play(name, vol, rate) {
+    if (P.muted || !woke || !audio() || !clips || !CUTS[name]) return;
+    try {
+      const src = ac.createBufferSource(), g = ac.createGain();
+      src.buffer = clips; src.playbackRate.value = rate || 1; g.gain.value = (vol == null ? 1 : vol) * VOL.sfx;
+      src.connect(g).connect(ac.destination);
+      src.start(0, CUTS[name][0], CUTS[name][1]);
+    } catch (e) {}
+  }
+  function tone(f, d, type, v, when, f2) {
+    if (P.muted || !woke || !audio()) return;
+    try {
       const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + (when || 0);
       o.type = type || 'sine';
       o.frequency.setValueAtTime(f, t);
@@ -734,14 +758,55 @@
       o.start(t); o.stop(t + d + 0.02);
     } catch (e) {}
   }
+  // Sea under the board while playing, music everywhere, a gull now and then. Nothing starts before the first tap.
+  function ambience() {
+    if (!woke) return;
+    try {
+      const wantSea = !P.muted && !document.hidden && $('game').classList.contains('show');
+      if (wantSea && seaBuf && !seaSrc && audio()) {
+        seaSrc = ac.createBufferSource(); seaGain = ac.createGain();
+        seaSrc.buffer = seaBuf; seaSrc.loop = true;
+        seaGain.gain.setValueAtTime(0.0001, ac.currentTime); seaGain.gain.linearRampToValueAtTime(VOL.sea, ac.currentTime + 1.5);
+        seaSrc.connect(seaGain).connect(ac.destination); seaSrc.start();
+      } else if (!wantSea && seaSrc) {
+        const src = seaSrc; seaSrc = null;
+        seaGain.gain.cancelScheduledValues(ac.currentTime); seaGain.gain.setValueAtTime(seaGain.gain.value, ac.currentTime); seaGain.gain.linearRampToValueAtTime(0.0001, ac.currentTime + 0.6);
+        src.stop(ac.currentTime + 0.7);
+      }
+      const wantMusic = !P.muted && P.music && !document.hidden;
+      if (wantMusic && !music) { music = new Audio('audio/music.ogg'); music.loop = true; music.volume = VOL.music; }
+      if (music) { if (wantMusic) { const pr = music.play(); if (pr && pr.catch) pr.catch(() => {}); } else music.pause(); }
+    } catch (e) {}
+  }
+  function wake() { if (woke) return; woke = true; audio(); ambience(); gullAt = performance.now() + 9000; }
+  ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wake, { capture: true }));
+  document.addEventListener('visibilitychange', () => { try { if (ac) { if (document.hidden) ac.suspend(); else ac.resume(); } } catch (e) {} ambience(); });
+  setInterval(() => {
+    if (!woke || P.muted || document.hidden || performance.now() < gullAt) return;
+    gullAt = performance.now() + 25000 + Math.random() * 40000;
+    play('gull' + (1 + Math.floor(Math.random() * 3)), VOL.gull / VOL.sfx, 0.92 + Math.random() * 0.16);
+  }, 1000);
   const buzz = ms => { if (!P.muted && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } };
   const sfx = {
-    place: () => { tone(220, 0.09, 'triangle', 0.1, 0, 140); buzz(8); },
-    clear: n => { [523, 659, 784, 1047].slice(0, 2 + Math.min(n, 2)).forEach((f, i) => tone(f, 0.16, 'sine', 0.09, i * 0.06)); buzz(25); },
-    rise: () => tone(90, 0.5, 'sine', 0.14, 0, 180),
-    boom: () => { tone(130, 0.32, 'sawtooth', 0.1, 0, 38); buzz(40); },
-    over: () => { tone(330, 0.25, 'triangle', 0.1, 0, 220); tone(220, 0.45, 'triangle', 0.1, 0.22, 110); },
-    win: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'sine', 0.09, i * 0.09)),
+    pick: () => play('tick', 0.5),
+    place: () => { play('place' + (1 + Math.floor(Math.random() * 3)), 0.9, 0.94 + Math.random() * 0.12); buzz(8); },
+    clear: n => { play(n >= 3 ? 'clear3' : n === 2 ? 'clear2' : 'clear1', 0.85); buzz(25); },
+    rise: () => play('wave', 0.75),
+    boom: () => { play('thump', 1, 0.7); tone(120, 0.3, 'sawtooth', 0.07, 0, 36); buzz(40); },
+    chop: () => { play('chop', 1); buzz(20); },
+    slice: () => { play('slice', 0.9); buzz(20); },
+    coin: () => play('coin', 0.7),
+    pearl: () => play('pearl', 0.7),
+    tap: () => play('tap', 0.45),
+    deny: () => play('deny', 0.6),
+    stuck: () => play('stuck', 0.7),
+    undo: () => play('undo', 0.8),
+    swap: () => play('swap', 0.9),
+    twist: () => play('twist', 0.7),
+    bags: () => play('bags', 1),
+    open: () => play('open', 0.5),
+    over: () => play('over', 0.8),
+    win: () => { play('win', 0.9); [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.2, 'sine', 0.05, 0.25 + i * 0.09)); },
   };
 
   // ---------- Layout ----------
@@ -998,6 +1063,7 @@
     if (py < trayY - PAD) return;
     const i = Math.min(2, Math.max(0, Math.floor(px / (W / 3)))), p = S.tray[i];
     if (!p) return;
+    sfx.pick();
     drag = { i, p, id: e.pointerId, r: NaN, c: NaN, valid: false, rows: [], cols: [], x: 0, y: 0 };
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
     moveDrag(e);
@@ -1014,8 +1080,13 @@
 
   // ---------- Buttons ----------
   const SPEAKER = '<svg class="ic" viewBox="0 0 24 24"><path d="M4 10v4h3l5 4V6l-5 4z"/>';
-  const setSound = () => { $('soundBtn').innerHTML = SPEAKER + (P.muted ? '<path d="M16.5 9.5l4.5 5M21 9.5l-4.5 5"/>' : '<path d="M16 9.5c1.3 1.5 1.3 3.5 0 5M18.8 7c2.600 3 2.600 7 0 10"/>') + '</svg>'; };
-  $('soundBtn').onclick = () => { P.muted = !P.muted; save(); setSound(); };
+  const setSound = () => { $('soundBtn').innerHTML = SPEAKER + (P.muted ? '<path d="M16.5 9.5l4.5 5M21 9.5l-4.5 5"/>' : P.music ? '<path d="M16 9.5c1.3 1.5 1.3 3.5 0 5M18.8 7c2.6 3 2.6 7 0 10"/>' : '<path d="M16 9.5c1.3 1.5 1.3 3.5 0 5"/>') + '</svg>'; };
+  $('soundBtn').onclick = () => {
+    if (P.muted) { P.muted = false; P.music = true; } else if (P.music) P.music = false; else P.muted = true;
+    save(); setSound(); ambience();
+    const t = $('toast'); t.textContent = P.muted ? 'Sound off' : P.music ? 'Sound and music on' : 'Music off, effects on'; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1400);
+  };
+  document.addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('#kit, #soundBtn')) sfx.tap(); });
   const quit = () => { if (S.mode === 'voyage' && !S.over) P.wind = 0; setAim(null, true); settle(); save(); };
   $('restartBtn').onclick = () => { quit(); startRun(S.mode, S.lv); };
   $('gMenu').onclick = () => { quit(); show(S.mode === 'voyage' ? 'map' : 'menu'); };
@@ -1054,7 +1125,7 @@
   requestAnimationFrame(draw);
 
   // Hook for automated playtests.
-  window.__tw = { get S() { return S; }, P, CFG, N, LEVELS, TUNE, place, canPlace, fullLines, startRun, dry, useItem, aimAt, ITEMS, ITEM, cleared, show, geo: () => ({ bx, by, cell, trayY, trayH, W }) };
+  window.__tw = { get S() { return S; }, P, CFG, N, LEVELS, TUNE, audioState: () => ({ woke, ctx: ac && ac.state, clips: clips && clips.duration, sea: seaBuf && seaBuf.duration, seaOn: !!seaSrc, music: music && !music.paused, musicT: music && music.currentTime }), place, canPlace, fullLines, startRun, dry, useItem, aimAt, ITEMS, ITEM, cleared, show, geo: () => ({ bx, by, cell, trayY, trayH, W }) };
 })();
 </script>
 </body>

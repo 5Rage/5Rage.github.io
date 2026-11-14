@@ -1,0 +1,27 @@
+Tidewater audio: sources and licences
+All files are CC0 (public domain). No attribution is required; this list is kept as a record.
+
+sfx.ogg (one file of short effects, cut by time)
+  Interface Sounds 1.0 by Kenney (kenney.nl), CC0
+    tick_001, click_001, confirmation_001/002/003/004, glass_001, error_004, question_001,
+    minimize_005, back_002, switch_003, open_001, close_001
+    via https://github.com/Calinou/kenney-interface-sounds (LICENSE.txt: Creative Commons Zero)
+  RPG sounds by Kenney Vleugels (kenney.nl), CC0
+    bookPlace1/2/3, doorClose_4, handleCoins, bookFlip2, chop, knifeSlice, dropLeather
+    https://opengameart.org/content/50-rpg-sound-effects (license.txt: CC0)
+  Beach Ocean Waves, from a recording by jasinski, CC0
+    wave_03
+    https://opengameart.org/content/beach-ocean-waves
+  Solo Seagull Sound Effects, CC0
+    Seagull Ambient 2, 5, 6
+    https://opengameart.org/content/solo-seagull-sound-effects
+
+sea.ogg (looping sea under the board)
+  Beach Ocean Waves, as above: wave_01, 02, 03, 04 crossfaded into a loop
+
+music.ogg
+  "Calm Track" (loop version) by pmiller, CC0: "Public Domain, no attribution necessary"
+  https://opengameart.org/content/calm-track
+
+Changes made: converted to mono, levels matched, joined into one file; the music is unmodified.
+Downloaded 14 November 2026.
